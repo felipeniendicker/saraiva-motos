@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { formatCurrency, normalizeText } from "../utils/formatters.js";
@@ -9,6 +9,15 @@ import {
   lookupProductByBarcode,
   normalizeBarcode
 } from "../services/productLookup.js";
+import {
+  PRODUCTS_API_ENABLED,
+  createProduct,
+  deactivateProduct,
+  findProductByCode,
+  reactivateProduct,
+  searchProducts,
+  updateProduct
+} from "../services/productsApi.js";
 
 const initialForm = {
   id: "",
@@ -31,8 +40,12 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   const [search, setSearch] = useState("");
   const [barcodeQuery, setBarcodeQuery] = useState("");
   const [lookupResult, setLookupResult] = useState({ status: PRODUCT_LOOKUP_STATUS.IDLE });
+  const [apiProducts, setApiProducts] = useState([]);
+  const [apiLoading, setApiLoading] = useState(PRODUCTS_API_ENABLED);
+  const [apiMessage, setApiMessage] = useState("");
   const barcodeInputRef = useRef(null);
-  const products = useMemo(() => db.products.filter((product) => {
+  const sourceProducts = PRODUCTS_API_ENABLED ? apiProducts : db.products;
+  const products = useMemo(() => sourceProducts.filter((product) => {
     const query = normalizeText(search.trim());
     return !query || [
       product.codigoReferencia,
@@ -42,7 +55,37 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
       product.marca,
       product.aplicacao
     ].some((value) => normalizeText(String(value || "")).includes(query));
-  }), [db.products, search]);
+  }), [sourceProducts, search]);
+
+  useEffect(() => {
+    if (!PRODUCTS_API_ENABLED) return undefined;
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setApiLoading(true);
+      try {
+        const result = await searchProducts(search, { includeInactive: true });
+        if (active) {
+          setApiProducts(result);
+          setApiMessage("");
+        }
+      } catch (error) {
+        if (active) setApiMessage(error.message || "Não foi possível carregar os produtos.");
+      } finally {
+        if (active) setApiLoading(false);
+      }
+    }, search ? 250 : 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
+  async function reloadApiProducts() {
+    const result = await searchProducts(search, { includeInactive: true });
+    setApiProducts(result);
+  }
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -77,7 +120,10 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
 
     setBarcodeQuery(barcode);
     setLookupResult({ status: PRODUCT_LOOKUP_STATUS.LOADING, barcode });
-    const result = await lookupProductByBarcode(barcode, { products: db.products });
+    const result = await lookupProductByBarcode(barcode, {
+      products: sourceProducts,
+      findProduct: PRODUCTS_API_ENABLED ? findProductByCode : undefined
+    });
     setLookupResult(result);
 
     if ([PRODUCT_LOOKUP_STATUS.NOT_FOUND, PRODUCT_LOOKUP_STATUS.ERROR].includes(result.status)) {
@@ -91,9 +137,9 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     scrollToForm();
   }
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
-    const saved = onSave({
+    const productData = {
       ...form,
       nome: form.nome.trim(),
       codigoReferencia: form.codigoReferencia.trim(),
@@ -103,10 +149,50 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
       precoRevenda: Number(form.precoRevenda),
       quantidadeEstoque: Number(form.quantidadeEstoque),
       estoqueMinimo: Number(form.estoqueMinimo)
-    });
+    };
+
+    if (PRODUCTS_API_ENABLED) {
+      try {
+        if (form.id) {
+          await updateProduct(form.id, productData);
+        } else {
+          await createProduct(productData);
+        }
+        await reloadApiProducts();
+        setApiMessage("Produto salvo com sucesso.");
+        setForm(initialForm);
+      } catch (error) {
+        setApiMessage(error.message || "Não foi possível salvar o produto.");
+      }
+      return;
+    }
+
+    const saved = onSave(productData);
 
     if (saved !== false) {
       setForm(initialForm);
+    }
+  }
+
+  async function toggleActive(product) {
+    if (!PRODUCTS_API_ENABLED) {
+      onToggleActive(product);
+      return;
+    }
+
+    const action = product.ativo ? "desativar" : "reativar";
+    if (!window.confirm(`Deseja ${action} o produto ${product.nome}?`)) return;
+
+    try {
+      if (product.ativo) {
+        await deactivateProduct(product.id);
+      } else {
+        await reactivateProduct(product.id);
+      }
+      await reloadApiProducts();
+      setApiMessage(product.ativo ? "Produto desativado." : "Produto reativado.");
+    } catch (error) {
+      setApiMessage(error.message || "Não foi possível alterar o produto.");
     }
   }
 
@@ -267,6 +353,10 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         description="Consulte referência, código de barras, estoque e preços."
         action={<input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto" />}
       >
+        {PRODUCTS_API_ENABLED && apiMessage && (
+          <div className="lookup-result lookup-warning"><div><p>{apiMessage}</p></div></div>
+        )}
+        {PRODUCTS_API_ENABLED && apiLoading && <p>Carregando produtos...</p>}
         {products.length === 0 ? (
           <EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou cadastre o primeiro produto." />
         ) : (
@@ -294,7 +384,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
                   </div>
                   <div className="card-actions">
                     <button className="secondary-button" onClick={() => edit(product)}>Editar</button>
-                    <button className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => onToggleActive(product)}>
+                    <button className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => toggleActive(product)}>
                       {product.ativo ? "Desativar" : "Reativar"}
                     </button>
                   </div>

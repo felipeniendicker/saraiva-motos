@@ -107,12 +107,26 @@ function normalizeProviderResult(result, barcode) {
 
 export async function lookupProductByBarcode(
   barcode,
-  { products = [], provider = lookupProviderMock } = {}
+  { products = [], findProduct, provider = lookupProviderMock } = {}
 ) {
   const normalized = normalizeBarcode(barcode);
-  const localProduct = products.find(
-    (product) => normalizeBarcode(product.codigoBarras) === normalized && normalized
-  );
+  let localProduct;
+
+  try {
+    localProduct = findProduct
+      ? await findProduct(normalized)
+      : products.find(
+          (product) => normalizeBarcode(product.codigoBarras) === normalized && normalized
+        );
+  } catch (error) {
+    return {
+      status: PRODUCT_LOOKUP_STATUS.ERROR,
+      found: false,
+      barcode: normalized,
+      source: null,
+      message: error instanceof Error ? error.message : "Não foi possível consultar os produtos da Saraiva Motos."
+    };
+  }
 
   if (localProduct) {
     return {
@@ -120,7 +134,7 @@ export async function lookupProductByBarcode(
       found: true,
       barcode: normalized,
       product: localProduct,
-      source: "LOCAL"
+      source: findProduct ? "SARAIVA_API" : "LOCAL"
     };
   }
 

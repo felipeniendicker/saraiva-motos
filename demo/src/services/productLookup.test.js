@@ -133,3 +133,28 @@ test("57. mock representa encontrado, não encontrado e erro", async () => {
   assert.equal(found.found, true);
   assert.equal(notFound.found, false);
 });
+
+test("58. consulta da API da Saraiva ocorre antes do provider externo", async () => {
+  let providerCalled = false;
+  const result = await lookupProductByBarcode("00123456", {
+    findProduct: async (code) => ({ id: 10, codigoBarras: code, nome: "Produto da API" }),
+    provider: async () => {
+      providerCalled = true;
+      return { found: false };
+    }
+  });
+
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_LOCAL);
+  assert.equal(result.source, "SARAIVA_API");
+  assert.equal(providerCalled, false);
+});
+
+test("59. produto ausente na API permite consultar provider externo", async () => {
+  const result = await lookupProductByBarcode("00123456", {
+    findProduct: async () => null,
+    provider: async () => ({ found: true, nome: "Produto externo", source: "TEST" })
+  });
+
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_EXTERNAL);
+  assert.equal(result.nome, "Produto externo");
+});

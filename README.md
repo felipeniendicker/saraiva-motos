@@ -19,7 +19,17 @@ npm test -- --run
 npm run build
 ```
 
-Nesta etapa, o frontend continua usando `localStorage`; ainda não há integração com a API.
+Os módulos de vendas, estoque e demais áreas continuam usando `localStorage`. A integração de Produtos com a API está preparada de forma controlada.
+
+A camada de Produtos pode ser validada contra o backend com:
+
+```powershell
+$env:VITE_API_URL = "http://localhost:8080"
+$env:VITE_PRODUCTS_API_ENABLED = "true"
+npm run dev
+```
+
+Enquanto PDV e Estoque ainda utilizarem os produtos do `localStorage`, mantenha `VITE_PRODUCTS_API_ENABLED` desabilitada no uso normal. A ativação foi deixada explícita para evitar duas fontes de verdade alterando estoque simultaneamente.
 
 ## Backend
 
