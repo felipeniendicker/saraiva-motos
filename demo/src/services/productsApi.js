@@ -1,6 +1,6 @@
 const API_URL = (import.meta.env?.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
 
-export const PRODUCTS_API_ENABLED = String(import.meta.env?.VITE_PRODUCTS_API_ENABLED || "").toLowerCase() === "true";
+export const BACKEND_API_ENABLED = String(import.meta.env?.VITE_BACKEND_API_ENABLED || "").toLowerCase() === "true";
 
 export class ProductsApiError extends Error {
   constructor(message, status) {

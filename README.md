@@ -19,17 +19,17 @@ npm test -- --run
 npm run build
 ```
 
-Os módulos de vendas, estoque e demais áreas continuam usando `localStorage`. A integração de Produtos com a API está preparada de forma controlada.
+Por padrão, o frontend preserva o funcionamento legado em `localStorage`. Produtos e Estoque podem usar juntos o backend real por meio de uma única configuração.
 
 A camada de Produtos pode ser validada contra o backend com:
 
 ```powershell
 $env:VITE_API_URL = "http://localhost:8080"
-$env:VITE_PRODUCTS_API_ENABLED = "true"
+$env:VITE_BACKEND_API_ENABLED = "true"
 npm run dev
 ```
 
-Enquanto PDV e Estoque ainda utilizarem os produtos do `localStorage`, mantenha `VITE_PRODUCTS_API_ENABLED` desabilitada no uso normal. A ativação foi deixada explícita para evitar duas fontes de verdade alterando estoque simultaneamente.
+No modo API, Produtos e Estoque usam o MySQL como única fonte de verdade. O saldo só pode ser alterado pela tela Estoque, que registra a movimentação correspondente. O PDV fica bloqueado até sua integração ao backend para impedir vendas locais contra estoque remoto. Dashboard e Relatórios ainda exibem os dados legados do `localStorage` e podem ficar desatualizados nesse modo.
 
 ## Backend
 

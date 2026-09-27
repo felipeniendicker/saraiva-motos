@@ -59,6 +59,7 @@ class ProdutoServiceTests {
         assertEquals("Pastilha de freio", response.nome());
         assertTrue(response.ativo());
         assertNotNull(response.dataCadastro());
+        assertEquals(0, response.quantidadeEstoque());
     }
 
     @Test
@@ -102,7 +103,7 @@ class ProdutoServiceTests {
     @Test
     void atualizacaoAlteraDadosCadastrais() {
         Produto produto = produto(3L, true);
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
 
         ProdutoResponse response = service.atualizar(3L, request("9988"));
 
@@ -114,7 +115,7 @@ class ProdutoServiceTests {
     void atualizacaoPreservaDataCadastro() {
         Produto produto = produto(3L, true);
         LocalDateTime original = produto.getDataCadastro();
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
 
         ProdutoResponse response = service.atualizar(3L, request("9988"));
 
@@ -122,9 +123,20 @@ class ProdutoServiceTests {
     }
 
     @Test
+    void atualizacaoCadastralNaoAlteraEstoque() {
+        Produto produto = produto(3L, true);
+        produto.setQuantidadeEstoque(12);
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
+
+        ProdutoResponse response = service.atualizar(3L, request("9988"));
+
+        assertEquals(12, response.quantidadeEstoque());
+    }
+
+    @Test
     void atualizacaoNaoReativaProduto() {
         Produto produto = produto(3L, false);
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
 
         ProdutoResponse response = service.atualizar(3L, request("9988"));
 
@@ -134,7 +146,7 @@ class ProdutoServiceTests {
     @Test
     void atualizacaoAceitaCodigoDoProprioProduto() {
         Produto produto = produto(3L, true);
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
         when(repository.findByCodigoBarras("00123456")).thenReturn(Optional.of(produto));
 
         ProdutoResponse response = service.atualizar(3L, request("00123456"));
@@ -144,7 +156,7 @@ class ProdutoServiceTests {
 
     @Test
     void atualizacaoRejeitaCodigoDeOutroProduto() {
-        when(repository.findById(3L)).thenReturn(Optional.of(produto(3L, true)));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto(3L, true)));
         when(repository.findByCodigoBarras("00123456")).thenReturn(Optional.of(produto(4L, true)));
 
         assertThrows(CodigoBarrasDuplicadoException.class,
@@ -154,7 +166,7 @@ class ProdutoServiceTests {
     @Test
     void desativacao() {
         Produto produto = produto(3L, true);
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
 
         assertFalse(service.desativar(3L).ativo());
     }
@@ -162,7 +174,7 @@ class ProdutoServiceTests {
     @Test
     void reativacao() {
         Produto produto = produto(3L, false);
-        when(repository.findById(3L)).thenReturn(Optional.of(produto));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(produto));
 
         assertTrue(service.reativar(3L).ativo());
     }

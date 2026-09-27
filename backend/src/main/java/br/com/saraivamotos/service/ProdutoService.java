@@ -26,6 +26,7 @@ public class ProdutoService {
     public ProdutoResponse criar(ProdutoRequest request) {
         Produto produto = new Produto();
         aplicarDados(produto, request);
+        produto.setQuantidadeEstoque(0);
         validarCodigoBarras(produto.getCodigoBarras(), null);
         produto.setAtivo(true);
         produto.setDataCadastro(LocalDateTime.now());
@@ -57,29 +58,37 @@ public class ProdutoService {
 
     @Transactional
     public ProdutoResponse atualizar(Long id, ProdutoRequest request) {
-        Produto produto = encontrarPorId(id);
+        Produto produto = encontrarPorIdParaAtualizar(id);
+        Integer estoqueAtual = produto.getQuantidadeEstoque();
         String codigoBarras = normalizarOpcional(request.codigoBarras());
         validarCodigoBarras(codigoBarras, id);
         aplicarDados(produto, request);
+        produto.setQuantidadeEstoque(estoqueAtual);
         return ProdutoResponse.from(repository.save(produto));
     }
 
     @Transactional
     public ProdutoResponse desativar(Long id) {
-        Produto produto = encontrarPorId(id);
+        Produto produto = encontrarPorIdParaAtualizar(id);
         produto.setAtivo(false);
         return ProdutoResponse.from(repository.save(produto));
     }
 
     @Transactional
     public ProdutoResponse reativar(Long id) {
-        Produto produto = encontrarPorId(id);
+        Produto produto = encontrarPorIdParaAtualizar(id);
         produto.setAtivo(true);
         return ProdutoResponse.from(repository.save(produto));
     }
 
     private Produto encontrarPorId(Long id) {
         return repository.findById(id)
+                .orElseThrow(() -> new ProdutoNaoEncontradoException(
+                        "Produto não encontrado para o id " + id + "."));
+    }
+
+    private Produto encontrarPorIdParaAtualizar(Long id) {
+        return repository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(
                         "Produto não encontrado para o id " + id + "."));
     }

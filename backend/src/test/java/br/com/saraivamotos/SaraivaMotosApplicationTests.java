@@ -1,6 +1,7 @@
 package br.com.saraivamotos;
 
 import br.com.saraivamotos.repository.ProdutoRepository;
+import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,11 @@ class SaraivaMotosApplicationTests {
         @Bean
         ProdutoRepository produtoRepository() {
             return mock(ProdutoRepository.class);
+        }
+
+        @Bean
+        MovimentacaoEstoqueRepository movimentacaoEstoqueRepository() {
+            return mock(MovimentacaoEstoqueRepository.class);
         }
     }
 }

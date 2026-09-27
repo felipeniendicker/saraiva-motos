@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Toast from "./components/Toast.jsx";
+import Panel from "./components/Panel.jsx";
 import {
   IconCustomers,
   IconDashboard,
@@ -21,6 +22,7 @@ import SuppliersPage from "./pages/SuppliersPage.jsx";
 import SalesPage from "./pages/SalesPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import { hasDuplicateBarcode, normalizeBarcode } from "./services/productLookup.js";
+import { BACKEND_API_ENABLED } from "./services/productsApi.js";
 import { cancelSale, completeSale } from "./services/sales.js";
 import { loadDatabase, saveDatabase } from "./services/storage.js";
 import { createId, getCurrentMonthValue } from "./utils/formatters.js";
@@ -471,7 +473,9 @@ export default function App() {
               path="/dashboard"
               element={<DashboardPage db={db} />}
             />
-            <Route path="/vendas" element={<SalesPage db={db} onFinalizeSale={handleFinalizeSale} onCancelSale={handleCancelSale} />} />
+            <Route path="/vendas" element={BACKEND_API_ENABLED
+              ? <Panel title="PDV temporariamente indisponível" description="O PDV será integrado ao estoque do backend na próxima etapa. O bloqueio evita movimentações divergentes entre o navegador e o banco de dados." />
+              : <SalesPage db={db} onFinalizeSale={handleFinalizeSale} onCancelSale={handleCancelSale} />} />
             <Route
               path="/clientes"
               element={

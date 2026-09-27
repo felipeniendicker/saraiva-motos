@@ -6,7 +6,7 @@
 "scripts": {
   "dev": "vite",
   "build": "node ./node_modules/vite/bin/vite.js build",
-  "test": "node --test --test-isolation=none src/services/sales.test.js src/services/productLookup.test.js",
+  "test": "node --test --test-isolation=none src/services/sales.test.js src/services/productLookup.test.js src/services/stockApi.test.js",
   "test:sales": "node --test --test-isolation=none src/services/sales.test.js",
   "preview": "node ./node_modules/vite/bin/vite.js preview"
 

@@ -10,7 +10,7 @@ import {
   normalizeBarcode
 } from "../services/productLookup.js";
 import {
-  PRODUCTS_API_ENABLED,
+  BACKEND_API_ENABLED,
   createProduct,
   deactivateProduct,
   findProductByCode,
@@ -41,10 +41,10 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   const [barcodeQuery, setBarcodeQuery] = useState("");
   const [lookupResult, setLookupResult] = useState({ status: PRODUCT_LOOKUP_STATUS.IDLE });
   const [apiProducts, setApiProducts] = useState([]);
-  const [apiLoading, setApiLoading] = useState(PRODUCTS_API_ENABLED);
+  const [apiLoading, setApiLoading] = useState(BACKEND_API_ENABLED);
   const [apiMessage, setApiMessage] = useState("");
   const barcodeInputRef = useRef(null);
-  const sourceProducts = PRODUCTS_API_ENABLED ? apiProducts : db.products;
+  const sourceProducts = BACKEND_API_ENABLED ? apiProducts : db.products;
   const products = useMemo(() => sourceProducts.filter((product) => {
     const query = normalizeText(search.trim());
     return !query || [
@@ -58,7 +58,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   }), [sourceProducts, search]);
 
   useEffect(() => {
-    if (!PRODUCTS_API_ENABLED) return undefined;
+    if (!BACKEND_API_ENABLED) return undefined;
 
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -122,7 +122,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     setLookupResult({ status: PRODUCT_LOOKUP_STATUS.LOADING, barcode });
     const result = await lookupProductByBarcode(barcode, {
       products: sourceProducts,
-      findProduct: PRODUCTS_API_ENABLED ? findProductByCode : undefined
+      findProduct: BACKEND_API_ENABLED ? findProductByCode : undefined
     });
     setLookupResult(result);
 
@@ -151,7 +151,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
       estoqueMinimo: Number(form.estoqueMinimo)
     };
 
-    if (PRODUCTS_API_ENABLED) {
+    if (BACKEND_API_ENABLED) {
       try {
         if (form.id) {
           await updateProduct(form.id, productData);
@@ -175,7 +175,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   }
 
   async function toggleActive(product) {
-    if (!PRODUCTS_API_ENABLED) {
+    if (!BACKEND_API_ENABLED) {
       onToggleActive(product);
       return;
     }
@@ -329,8 +329,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
             <input type="number" min="0" step="0.01" value={form.precoRevenda} onChange={(event) => update("precoRevenda", event.target.value)} required />
           </label>
           <label>
-            Estoque atual
-            <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required />
+            {BACKEND_API_ENABLED ? "Estoque atual (altere na tela Estoque)" : "Estoque atual"}
+            <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required disabled={BACKEND_API_ENABLED} />
           </label>
           <label>
             Estoque mínimo
@@ -353,10 +353,10 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         description="Consulte referência, código de barras, estoque e preços."
         action={<input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto" />}
       >
-        {PRODUCTS_API_ENABLED && apiMessage && (
+        {BACKEND_API_ENABLED && apiMessage && (
           <div className="lookup-result lookup-warning"><div><p>{apiMessage}</p></div></div>
         )}
-        {PRODUCTS_API_ENABLED && apiLoading && <p>Carregando produtos...</p>}
+        {BACKEND_API_ENABLED && apiLoading && <p>Carregando produtos...</p>}
         {products.length === 0 ? (
           <EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou cadastre o primeiro produto." />
         ) : (

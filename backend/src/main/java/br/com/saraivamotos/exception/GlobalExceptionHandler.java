@@ -34,6 +34,13 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(OperacaoEstoqueInvalidaException.class)
+    public ResponseEntity<ApiError> handleInvalidStockOperation(
+            OperacaoEstoqueInvalidaException exception,
+            HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(
             DataIntegrityViolationException exception,
