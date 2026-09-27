@@ -1,0 +1,22 @@
+# Segredos e configurações locais
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+**/target/
+*.class
+
+# Frontend
+demo/node_modules/
+demo/dist/
+
+# IDEs e sistema operacional
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
