@@ -14,6 +14,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -24,6 +25,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleNotFound(
             ProdutoNaoEncontradoException exception,
             HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(VendaNaoEncontradaException.class)
+    public ResponseEntity<ApiError> handleSaleNotFound(VendaNaoEncontradaException exception, HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
     }
 
@@ -39,6 +45,16 @@ public class GlobalExceptionHandler {
             OperacaoEstoqueInvalidaException exception,
             HttpServletRequest request) {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(OperacaoVendaInvalidaException.class)
+    public ResponseEntity<ApiError> handleInvalidSaleOperation(OperacaoVendaInvalidaException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Parâmetro inválido: " + exception.getName() + ".", request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

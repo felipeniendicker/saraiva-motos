@@ -18,6 +18,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
     @Query("SELECT p FROM Produto p WHERE p.id = :id")
     Optional<Produto> findByIdForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Produto p WHERE p.id IN :ids ORDER BY p.id")
+    List<Produto> findAllByIdForUpdate(@Param("ids") List<Long> ids);
+
     Optional<Produto> findByCodigoBarras(String codigoBarras);
 
     Optional<Produto> findFirstByCodigoBarrasAndAtivoTrue(String codigoBarras);
