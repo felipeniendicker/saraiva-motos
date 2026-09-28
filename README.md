@@ -100,5 +100,7 @@ Os testes automatizados não dependem de uma instância externa do MySQL. A vali
 Não foi incluído Docker Compose porque o ambiente desta etapa não possui Docker disponível. A configuração acima permite executar e validar com uma instalação local do MySQL.
 # Saraiva Motos
 
-O modo backend (`VITE_BACKEND_API_ENABLED=true`) utiliza MySQL para Produtos, Estoque, Clientes, Motos e Vendas. Dashboard e Relatórios ainda dependem dos dados legados do navegador e permanecem pendentes de migração; não há sincronização entre essas fontes.
+O modo backend (`VITE_BACKEND_API_ENABLED=true`) utiliza MySQL para Produtos, Estoque, Clientes, Motos, Vendas, Dashboard e Relatórios, sem fallback para dados locais. O Dashboard apresenta totais gerais de produtos/clientes ativos, estoque baixo, vendas concluídas, faturamento e seis movimentações recentes. Relatórios oferecem período opcional por datas, resumo de vendas, ticket médio, descontos, ranking por snapshot e posição atual/valor de custo do estoque ativo. Vendas canceladas permanecem na listagem histórica, mas não entram em indicadores financeiros, quantidade ou ranking.
+
+O período é interpretado no horário local do servidor: data inicial às 00:00, inclusiva, até o início do dia seguinte à data final, exclusivo. O valor vendido no ranking soma subtotais praticados antes do desconto global, pois o sistema não realiza rateio desse desconto entre itens.
 

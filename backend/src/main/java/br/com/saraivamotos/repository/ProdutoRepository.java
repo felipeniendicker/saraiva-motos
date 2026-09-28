@@ -11,8 +11,23 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.math.BigDecimal;
 
 public interface ProdutoRepository extends JpaRepository<Produto, Long> {
+
+    long countByAtivoTrue();
+
+    @Query("SELECT COUNT(p) FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= p.estoqueMinimo")
+    long contarEstoqueBaixo();
+
+    @Query("SELECT p FROM Produto p WHERE p.ativo = true AND p.quantidadeEstoque <= p.estoqueMinimo ORDER BY p.quantidadeEstoque, p.nome, p.id")
+    List<Produto> buscarEstoqueBaixo();
+
+    @Query("SELECT COALESCE(SUM(p.quantidadeEstoque), 0) FROM Produto p WHERE p.ativo = true")
+    Long somarUnidadesAtivas();
+
+    @Query("SELECT COALESCE(SUM(p.valorCusto * p.quantidadeEstoque), 0) FROM Produto p WHERE p.ativo = true")
+    BigDecimal calcularValorEstoqueAtivo();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Produto p WHERE p.id = :id")

@@ -14,6 +14,28 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VendaRepository extends JpaRepository<Venda, Long> {
+    @Query("""
+            SELECT COUNT(v), COALESCE(SUM(v.total), 0), COALESCE(SUM(v.desconto), 0)
+            FROM Venda v WHERE v.status = br.com.saraivamotos.domain.StatusVenda.CONCLUIDA
+              AND (:inicio IS NULL OR v.dataHora >= :inicio) AND (:fim IS NULL OR v.dataHora < :fim)
+            """)
+    List<Object[]> resumirConcluidas(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
+
+    @Query("""
+            SELECT COALESCE(SUM(i.quantidade), 0) FROM ItemVenda i
+            WHERE i.venda.status = br.com.saraivamotos.domain.StatusVenda.CONCLUIDA
+              AND (:inicio IS NULL OR i.venda.dataHora >= :inicio) AND (:fim IS NULL OR i.venda.dataHora < :fim)
+            """)
+    Long somarItensConcluidos(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
+
+    @Query("""
+            SELECT i.produto.id, i.descricaoProduto, i.codigoProduto, SUM(i.quantidade), SUM(i.subtotal)
+            FROM ItemVenda i WHERE i.venda.status = br.com.saraivamotos.domain.StatusVenda.CONCLUIDA
+              AND (:inicio IS NULL OR i.venda.dataHora >= :inicio) AND (:fim IS NULL OR i.venda.dataHora < :fim)
+            GROUP BY i.produto.id, i.descricaoProduto, i.codigoProduto
+            ORDER BY SUM(i.quantidade) DESC, i.descricaoProduto ASC, i.produto.id ASC
+            """)
+    List<Object[]> rankingProdutos(@Param("inicio") LocalDateTime inicio, @Param("fim") LocalDateTime fim);
     @EntityGraph(attributePaths = {"itens", "itens.produto"})
     @Query("SELECT DISTINCT v FROM Venda v WHERE v.id = :id")
     Optional<Venda> buscarCompletaPorId(@Param("id") Long id);

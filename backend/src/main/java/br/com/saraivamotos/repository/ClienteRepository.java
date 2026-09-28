@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
+    long countByAtivoTrue();
     @Query("""
             SELECT c FROM Cliente c
             WHERE (:incluirInativos = true OR c.ativo = true)

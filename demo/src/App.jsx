@@ -21,8 +21,10 @@ import SuppliersPage from "./pages/SuppliersPage.jsx";
 import SalesPage from "./pages/SalesPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import { hasDuplicateBarcode, normalizeBarcode } from "./services/productLookup.js";
+import { BACKEND_API_ENABLED } from "./services/productsApi.js";
 import { cancelSale, completeSale } from "./services/sales.js";
 import { loadDatabase, saveDatabase } from "./services/storage.js";
+import { createSeedDatabase } from "./data/seed.js";
 import { createId, getCurrentMonthValue } from "./utils/formatters.js";
 
 const navItems = [
@@ -124,7 +126,7 @@ function buildOrderStatus(order, status) {
 }
 
 export default function App() {
-  const [db, setDb] = useState(() => loadDatabase());
+  const [db, setDb] = useState(() => BACKEND_API_ENABLED ? createSeedDatabase() : loadDatabase());
   const [toast, setToast] = useState(null);
   const [billingMonth, setBillingMonth] = useState(getCurrentMonthValue());
   const [orderDraft, setOrderDraft] = useState(null);
@@ -158,7 +160,7 @@ export default function App() {
   function persist(updater, nextToast) {
     setDb((current) => {
       const next = typeof updater === "function" ? updater(current) : updater;
-      saveDatabase(next);
+      if (!BACKEND_API_ENABLED) saveDatabase(next);
       return next;
     });
 

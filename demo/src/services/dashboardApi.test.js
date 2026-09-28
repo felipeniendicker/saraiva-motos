@@ -1,0 +1,3 @@
+import test from "node:test"; import assert from "node:assert/strict"; import { getDashboard } from "./dashboardApi.js";
+test("dashboard usa endpoint backend", async()=>{ let url; global.fetch=async(value)=>{url=value;return {ok:true,status:200,json:async()=>({totalProdutosAtivos:2})};}; const data=await getDashboard();assert.match(url,/api\/dashboard$/);assert.equal(data.totalProdutosAtivos,2); });
+test("dashboard propaga erro sem fallback local", async()=>{ global.fetch=async()=>({ok:false,status:500,json:async()=>({message:"falha real"})});await assert.rejects(getDashboard(),/falha real/); });

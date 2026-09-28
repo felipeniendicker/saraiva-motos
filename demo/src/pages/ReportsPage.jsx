@@ -1,84 +1,11 @@
-import EmptyState from "../components/EmptyState.jsx";
-import Panel from "../components/Panel.jsx";
-import StatCard from "../components/StatCard.jsx";
-import { IconCustomers, IconOrder, IconRevenue, IconSpark } from "../components/icons.jsx";
-import { getCompletedSalesMetrics, getTopSellingProducts } from "../services/sales.js";
-import { formatCurrency } from "../utils/formatters.js";
-
-export default function ReportsPage({ db }) {
-  const activeProducts = db.products.filter((product) => product.ativo);
-  const lowStock = activeProducts.filter(
-    (product) => product.quantidadeEstoque <= product.estoqueMinimo
-  ).length;
-  const stockUnits = activeProducts.reduce(
-    (total, product) => total + Number(product.quantidadeEstoque || 0),
-    0
-  );
-  const salesMetrics = getCompletedSalesMetrics(db.sales);
-  const topProducts = getTopSellingProducts(db.sales).slice(0, 5);
-
-  return (
-    <div className="page-stack">
-      <Panel
-        title="Visão geral"
-        description="Indicadores atuais dos cadastros e do estoque da Saraiva Motos."
-      >
-        <div className="stats-grid compact">
-          <StatCard
-            icon={<IconSpark />}
-            label="Produtos cadastrados"
-            value={activeProducts.length}
-            hint={`${stockUnits} unidades em estoque`}
-            tone="blue"
-          />
-          <StatCard
-            icon={<IconRevenue />}
-            label="Produtos com estoque baixo"
-            value={lowStock}
-            hint="Itens que precisam de reposição"
-            tone="red"
-          />
-          <StatCard
-            icon={<IconCustomers />}
-            label="Clientes cadastrados"
-            value={db.customers.filter((customer) => customer.ativo).length}
-            hint="Cadastros disponíveis para atendimento"
-            tone="orange"
-          />
-        </div>
-      </Panel>
-
-      <Panel
-        title="Relatórios de vendas"
-        description="Somente vendas concluídas entram nos indicadores."
-      >
-        {salesMetrics.completedSales === 0 ? (
-          <EmptyState
-            title="Nenhuma venda concluída"
-            description="Os indicadores serão exibidos após a conclusão da primeira venda."
-          />
-        ) : (
-          <div className="page-stack">
-            <div className="stats-grid compact">
-              <StatCard icon={<IconOrder />} label="Vendas concluídas" value={salesMetrics.completedSales} hint="Vendas canceladas não são contabilizadas" tone="green" />
-              <StatCard icon={<IconRevenue />} label="Valor vendido" value={formatCurrency(salesMetrics.revenue)} hint="Faturamento válido registrado" tone="orange" />
-              <StatCard icon={<IconSpark />} label="Itens vendidos" value={salesMetrics.itemsSold} hint="Quantidade total nas vendas válidas" tone="blue" />
-            </div>
-            <div>
-              <h4>Produtos mais vendidos</h4>
-              <div className="timeline-list">
-                {topProducts.map((product) => (
-                  <article key={product.produtoId} className="timeline-item">
-                    <span className="plate-badge">{product.quantidade} un.</span>
-                    <div><strong>{product.descricaoProduto}</strong><p>{product.codigoProduto || "Sem referência"}</p></div>
-                    <strong>{formatCurrency(product.valorTotal)}</strong>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </Panel>
-    </div>
-  );
-}
+import { useEffect,useState } from "react";
+import EmptyState from "../components/EmptyState.jsx";import Panel from "../components/Panel.jsx";import StatCard from "../components/StatCard.jsx";
+import {IconOrder,IconRevenue,IconSpark} from "../components/icons.jsx";import {getCompletedSalesMetrics,getTopSellingProducts} from "../services/sales.js";
+import {BACKEND_API_ENABLED} from "../services/productsApi.js";import {getSalesReport,getStockReport} from "../services/reportsApi.js";import {formatCurrency} from "../utils/formatters.js";
+function View({stock,sales,filters,onChange,onSubmit}){const s=sales.resumo,top=sales.produtosMaisVendidos||[];return <div className="page-stack"><Panel title="Visão geral" description="Indicadores atuais dos cadastros e do estoque da Saraiva Motos."><div className="stats-grid compact"><StatCard icon={<IconSpark/>} label="Produtos cadastrados" value={stock.produtosAtivos} hint={`${stock.unidadesEstoque} unidades em estoque`} tone="blue"/><StatCard icon={<IconRevenue/>} label="Produtos com estoque baixo" value={stock.produtosEstoqueBaixo} hint="Itens que precisam de reposição" tone="red"/><StatCard icon={<IconRevenue/>} label="Valor do estoque" value={formatCurrency(stock.valorEstoqueCusto)} hint="Custo dos produtos ativos" tone="orange"/></div></Panel><Panel title="Relatórios de vendas" description="Somente vendas concluídas entram nos indicadores.">
+  {onSubmit&&<form className="form-grid-pro" onSubmit={onSubmit}><label>Data inicial<input type="date" value={filters.startDate} onChange={e=>onChange({...filters,startDate:e.target.value})}/></label><label>Data final<input type="date" value={filters.endDate} onChange={e=>onChange({...filters,endDate:e.target.value})}/></label><div className="form-actions-pro"><button className="primary-button">Aplicar período</button></div></form>}
+  {s.quantidadeVendas===0?<EmptyState title="Nenhuma venda concluída" description="Não há vendas concluídas no período selecionado."/>:<div className="page-stack"><div className="stats-grid compact"><StatCard icon={<IconOrder/>} label="Vendas concluídas" value={s.quantidadeVendas} hint="Canceladas não são contabilizadas" tone="green"/><StatCard icon={<IconRevenue/>} label="Valor vendido" value={formatCurrency(s.faturamento)} hint={`Ticket médio: ${formatCurrency(s.ticketMedio)}`} tone="orange"/><StatCard icon={<IconSpark/>} label="Itens vendidos" value={s.itensVendidos} hint={`Descontos: ${formatCurrency(s.descontosConcedidos)}`} tone="blue"/></div><div><h4>Produtos mais vendidos</h4><div className="timeline-list">{top.slice(0,5).map(p=><article key={`${p.produtoId}-${p.descricao}-${p.codigoProduto}`} className="timeline-item"><span className="plate-badge">{p.quantidadeVendida} un.</span><div><strong>{p.descricao}</strong><p>{p.codigoProduto||"Sem referência"}</p></div><strong>{formatCurrency(p.valorVendido)}</strong></article>)}</div></div></div>}
+  </Panel></div>}
+function Legacy({db}){const active=db.products.filter(p=>p.ativo),m=getCompletedSalesMetrics(db.sales),top=getTopSellingProducts(db.sales);return <View stock={{produtosAtivos:active.length,produtosEstoqueBaixo:active.filter(p=>p.quantidadeEstoque<=p.estoqueMinimo).length,unidadesEstoque:active.reduce((a,p)=>a+Number(p.quantidadeEstoque||0),0),valorEstoqueCusto:active.reduce((a,p)=>a+p.quantidadeEstoque*p.valorCusto,0)}} sales={{resumo:{quantidadeVendas:m.completedSales,faturamento:m.revenue,ticketMedio:m.completedSales?m.revenue/m.completedSales:0,descontosConcedidos:0,itensVendidos:m.itemsSold},produtosMaisVendidos:top.map(p=>({produtoId:p.produtoId,descricao:p.descricaoProduto,codigoProduto:p.codigoProduto,quantidadeVendida:p.quantidade,valorVendido:p.valorTotal}))}}/>;}
+function Backend(){const[filters,setFilters]=useState({startDate:"",endDate:""}),[state,setState]=useState({loading:true});async function load(){setState({loading:true});try{const[stock,sales]=await Promise.all([getStockReport(),getSalesReport(filters)]);setState({stock,sales});}catch(e){setState({error:e.message});}}useEffect(()=>{load();},[]);if(state.loading)return <Panel title="Carregando relatórios" description="Consultando dados operacionais no backend."/>;if(state.error)return <Panel title="Relatórios indisponíveis" description={state.error}/>;return <View stock={state.stock} sales={state.sales} filters={filters} onChange={setFilters} onSubmit={e=>{e.preventDefault();load();}}/>;}
+export default function ReportsPage(props){return BACKEND_API_ENABLED?<Backend/>:<Legacy {...props}/>;}
