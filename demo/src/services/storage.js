@@ -145,17 +145,6 @@ function normalizeDatabase(database) {
     products: products.map(normalizeProduct),
     stockMovements: movements.map(normalizeMovement),
     sales: normalizedSales,
-    quotes: (database.quotes || seed.quotes).map((quote) => ({
-      ...quote,
-      status: quote.status === "Em aberto" ? "Pendente" : quote.status,
-      items: quote.items || []
-    })),
-    orders: (database.orders || seed.orders).map((order) => ({
-      ...order,
-      status: order.status === "Aguardando peça" ? "Aguardando" : order.status,
-      partsUsed: order.partsUsed || ""
-    })),
-    suppliers: database.suppliers || seed.suppliers,
     meta: {
       ...seed.meta,
       ...database.meta,
@@ -189,8 +178,3 @@ export function saveDatabase(database) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(database));
 }
 
-export function resetDatabase() {
-  const seeded = createSeedDatabase();
-  saveDatabase(seeded);
-  return seeded;
-}

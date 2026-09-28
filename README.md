@@ -1,106 +1,61 @@
 # Saraiva Motos
 
-Sistema de gestão da Saraiva Motos. O frontend permanece em `demo/` e o backend Java está em `backend/`.
+Sistema operacional da Saraiva Motos para atendimento e controle da loja.
 
-## Frontend
+## Módulos atuais
 
-Requisitos: Node.js e npm.
+- Dashboard;
+- Vendas e cancelamentos;
+- Produtos / Peças;
+- Estoque e movimentações;
+- Clientes e Motos;
+- Relatórios.
+
+O frontend usa React/Vite, o backend usa Java 17 e Spring Boot, e a persistência real é feita no MySQL. O Flyway controla o schema e o Hibernate usa `ddl-auto=validate`.
+
+## Execução local
+
+O backend recebe `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e, opcionalmente, `CORS_ALLOWED_ORIGINS` pelo ambiente. Nenhuma credencial deve ser versionada.
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+O frontend recebe:
+
+- `VITE_BACKEND_API_ENABLED=true` para utilizar exclusivamente API/MySQL;
+- `VITE_API_URL`, cujo padrão local é `http://localhost:8080`.
 
 ```powershell
 cd demo
-npm install
+$env:VITE_BACKEND_API_ENABLED = "true"
+$env:VITE_API_URL = "http://localhost:8080"
 npm run dev
 ```
 
-O Vite inicia normalmente em `http://localhost:5173`. Para validar o frontend:
+No modo backend não há leitura, escrita, sincronização ou fallback para `localStorage`, e nenhum dado seed é inicializado. Falhas da API são exibidas como erro.
+
+## Compatibilidade legada
+
+O modo `VITE_BACKEND_API_ENABLED=false` permanece temporariamente para testes e demonstração isolada dos seis módulos atuais. Somente esse modo utiliza `storage.js`, `seed.js` e `localStorage`. Orçamentos, Oficina/Serviços, Fornecedores e Faturamento não fazem parte do sistema atual e foram removidos.
+
+## Dashboard e relatórios
+
+O Dashboard apresenta totais gerais de produtos e clientes ativos, estoque baixo, vendas concluídas, faturamento e seis movimentações recentes. Relatórios oferecem período opcional, ticket médio, descontos, ranking baseado nos snapshots dos itens e valor de custo do estoque ativo.
+
+Vendas canceladas permanecem no histórico, mas não entram em faturamento, quantidade operacional, ticket médio ou ranking. O ranking soma subtotais dos itens antes do desconto global, pois não existe rateio por item.
+
+## Validação
 
 ```powershell
+cd backend
+.\mvnw.cmd clean test
+.\mvnw.cmd package
+
+cd ..\demo
 npm test -- --run
 npm run build
 ```
 
-Por padrão, o frontend preserva o funcionamento legado em `localStorage`. Produtos e Estoque podem usar juntos o backend real por meio de uma única configuração.
-
-A camada de Produtos pode ser validada contra o backend com:
-
-```powershell
-$env:VITE_API_URL = "http://localhost:8080"
-$env:VITE_BACKEND_API_ENABLED = "true"
-npm run dev
-```
-
-No modo API, Produtos e Estoque usam o MySQL como única fonte de verdade. O saldo só pode ser alterado pela tela Estoque, que registra a movimentação correspondente. O PDV fica bloqueado até sua integração ao backend para impedir vendas locais contra estoque remoto. Dashboard e Relatórios ainda exibem os dados legados do `localStorage` e podem ficar desatualizados nesse modo.
-
-## Backend
-
-O backend usa Java 17, Spring Boot, Maven, Spring Web, Spring Data JPA, Bean Validation, MySQL e Flyway.
-
-### Requisitos
-
-- Java 17
-- Maven 3.6.3 ou superior
-- MySQL 8
-
-Crie o banco e um usuário local no MySQL. Exemplo:
-
-```sql
-CREATE DATABASE saraiva_motos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'saraiva'@'localhost' IDENTIFIED BY 'defina-uma-senha-local';
-GRANT ALL PRIVILEGES ON saraiva_motos.* TO 'saraiva'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-Configure as credenciais no terminal, sem gravá-las no repositório:
-
-```powershell
-$env:DB_URL = "jdbc:mysql://localhost:3306/saraiva_motos?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo"
-$env:DB_USERNAME = "saraiva"
-$env:DB_PASSWORD = "sua-senha-local"
-$env:CORS_ALLOWED_ORIGINS = "http://localhost:5173"
-```
-
-Execute o backend:
-
-```powershell
-cd backend
-mvn spring-boot:run
-```
-
-Ao iniciar a aplicação, o Flyway aplica automaticamente as migrações em `src/main/resources/db/migration`. O Hibernate está configurado apenas para validar o schema (`ddl-auto=validate`), portanto não cria nem altera tabelas.
-
-Valide o endpoint:
-
-```powershell
-Invoke-RestMethod http://localhost:8080/api/health
-```
-
-Resposta esperada:
-
-```json
-{"status":"UP","application":"Saraiva Motos"}
-```
-
-Para executar testes e gerar o pacote:
-
-```powershell
-mvn test
-mvn package
-```
-
-Os testes automatizados não dependem de uma instância externa do MySQL. A validação real das migrações ocorre na inicialização contra o MySQL configurado.
-
-### Decisões da estrutura inicial
-
-- Identificadores usam `BIGINT AUTO_INCREMENT`, oferecendo uma faixa ampla e mantendo o modelo simples para esta fase.
-- Valores monetários usam `DECIMAL(15,2)`, evitando imprecisão de ponto flutuante.
-- Datas são persistidas em `DATETIME(6)` e a aplicação usa o fuso `America/Sao_Paulo`.
-- O CORS aceita somente origens configuradas em `CORS_ALLOWED_ORIGINS`; o padrão local é `http://localhost:5173`.
-- Credenciais são fornecidas por variáveis de ambiente e não são versionadas.
-
-Não foi incluído Docker Compose porque o ambiente desta etapa não possui Docker disponível. A configuração acima permite executar e validar com uma instalação local do MySQL.
-# Saraiva Motos
-
-O modo backend (`VITE_BACKEND_API_ENABLED=true`) utiliza MySQL para Produtos, Estoque, Clientes, Motos, Vendas, Dashboard e Relatórios, sem fallback para dados locais. O Dashboard apresenta totais gerais de produtos/clientes ativos, estoque baixo, vendas concluídas, faturamento e seis movimentações recentes. Relatórios oferecem período opcional por datas, resumo de vendas, ticket médio, descontos, ranking por snapshot e posição atual/valor de custo do estoque ativo. Vendas canceladas permanecem na listagem histórica, mas não entram em indicadores financeiros, quantidade ou ranking.
-
-O período é interpretado no horário local do servidor: data inicial às 00:00, inclusiva, até o início do dia seguinte à data final, exclusivo. O valor vendido no ranking soma subtotais praticados antes do desconto global, pois o sistema não realiza rateio desse desconto entre itens.
-
+Não há autenticação nesta versão. A separação React → API → Services → Repositories → MySQL permite acrescentar Spring Security/JWT posteriormente sem alterar a persistência dos módulos operacionais.

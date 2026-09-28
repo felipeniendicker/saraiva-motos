@@ -20,12 +20,6 @@ export function createSeedDatabase() {
     { id: "moto-4", clienteId: "cli-4", marca: "Honda", modelo: "Pop 110i", ano: "2023", cilindrada: "110", placa: "", observacoes: "Placa não informada." }
   ];
 
-  const suppliers = [
-    { id: "for-1", name: "Eduardo Lima", phone: "(11) 4002-8922", company: "Moto Distribuidora Brasil", notes: "Entrega semanal de peças Honda e Yamaha." },
-    { id: "for-2", name: "Fernanda Souza", phone: "(11) 3333-1840", company: "Rota Duas Rodas", notes: "Pneus, relação e itens de freio." },
-    { id: "for-3", name: "André Ribeiro", phone: "(11) 98888-4210", company: "LubriMoto Atacado", notes: "Óleos, filtros e produtos de manutenção." }
-  ];
-
   const products = [
     { id: "pec-1", nome: "Óleo Motul 10W40", codigoReferencia: "OL-MOT-1040", codigoBarras: "", marca: "Motul", categoria: "Lubrificantes", aplicacao: "Motos 4 tempos", valorCusto: 36, precoVarejo: 54.9, precoRevenda: 49.9, quantidadeEstoque: 18, estoqueMinimo: 8, observacoes: "Frasco de 1 litro.", ativo: true, dataCadastro },
     { id: "pec-2", nome: "Kit Relação CG 160", codigoReferencia: "KR-CG160", codigoBarras: "", marca: "Riffel", categoria: "Transmissão", aplicacao: "Honda CG 160 2016+", valorCusto: 118, precoVarejo: 179.9, precoRevenda: 164.9, quantidadeEstoque: 3, estoqueMinimo: 5, observacoes: "Coroa, pinhão e corrente.", ativo: true, dataCadastro },
@@ -44,19 +38,7 @@ export function createSeedDatabase() {
     { id: "mov-5", produtoId: "pec-7", tipo: "AJUSTE_SAIDA", quantidade: 1, estoqueAnterior: 16, estoquePosterior: 15, motivo: "Aplicação em revisão", vendaId: null, dataHora: `${buildMonthDate(-5)}T16:00:00` }
   ];
 
-  const quotes = [
-    { id: "orc-1", customerId: "cli-2", bikeId: "moto-2", serviceDescription: "Troca do kit relação e revisão da suspensão.", items: [{ productId: "pec-2", quantity: 1, unitPrice: 179.9 }], parts: "Kit Relação CG 160", partsValue: 179.9, laborValue: 180, total: 359.9, status: "Pendente", createdAt: buildMonthDate(-5) },
-    { id: "orc-2", customerId: "cli-3", bikeId: "moto-3", serviceDescription: "Revisão do sistema de partida e troca de vela.", items: [{ productId: "pec-7", quantity: 1, unitPrice: 24.9 }], parts: "Vela NGK", partsValue: 24.9, laborValue: 140, total: 164.9, status: "Aprovado", createdAt: buildMonthDate(-8) },
-    { id: "orc-3", customerId: "cli-4", bikeId: "moto-4", serviceDescription: "Troca de óleo e inspeção geral.", items: [{ productId: "pec-1", quantity: 1, unitPrice: 54.9 }], parts: "Óleo Motul 10W40", partsValue: 54.9, laborValue: 60, total: 114.9, status: "Recusado", createdAt: buildMonthDate(-10) }
-  ];
-
-  const orders = [
-    { id: "os-1", customerId: "cli-1", bikeId: "moto-1", sourceQuoteId: null, service: "Revisão geral com troca de óleo e filtros.", partsUsed: "Óleo Motul 10W40, Vela NGK", mechanic: "Marcos Silva", entryDate: buildMonthDate(-6), dueDate: buildMonthDate(-2), status: "Finalizado", total: 480, createdAt: buildMonthDate(-6), completedAt: buildMonthDate(-2) },
-    { id: "os-2", customerId: "cli-2", bikeId: "moto-2", sourceQuoteId: null, service: "Diagnóstico elétrico e troca de lâmpadas.", partsUsed: "Lâmpada do farol", mechanic: "Paulo Menezes", entryDate: buildMonthDate(-1), dueDate: buildMonthDate(2), status: "Em andamento", total: 230, createdAt: buildMonthDate(-1), completedAt: null },
-    { id: "os-3", customerId: "cli-3", bikeId: "moto-3", sourceQuoteId: "orc-2", service: "Revisão do sistema de partida e troca de vela.", partsUsed: "Vela NGK", mechanic: "Aline Rocha", entryDate: buildMonthDate(-3), dueDate: buildMonthDate(1), status: "Aguardando", total: 164.9, createdAt: buildMonthDate(-3), completedAt: null }
-  ];
-
   const sales = [];
 
-  return { customers, bikes, suppliers, products, stockMovements, sales, quotes, orders, meta: { seededAt: new Date().toISOString(), version: 5, nextSaleNumber: 1 } };
+  return { customers, bikes, products, stockMovements, sales, meta: { seededAt: new Date().toISOString(), version: 5, nextSaleNumber: 1 } };
 }
