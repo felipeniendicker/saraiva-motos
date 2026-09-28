@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import br.com.saraivamotos.domain.ItemVenda;
+import br.com.saraivamotos.domain.Cliente;
 import br.com.saraivamotos.domain.MovimentacaoEstoque;
 import br.com.saraivamotos.domain.Produto;
 import br.com.saraivamotos.domain.StatusVenda;
@@ -24,9 +25,11 @@ import br.com.saraivamotos.dto.ItemVendaRequest;
 import br.com.saraivamotos.dto.VendaRequest;
 import br.com.saraivamotos.dto.VendaResponse;
 import br.com.saraivamotos.exception.OperacaoVendaInvalidaException;
+import br.com.saraivamotos.exception.ClienteNaoEncontradoException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.exception.VendaNaoEncontradaException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
+import br.com.saraivamotos.repository.ClienteRepository;
 import br.com.saraivamotos.repository.ProdutoRepository;
 import br.com.saraivamotos.repository.VendaRepository;
 
@@ -40,17 +43,21 @@ public class VendaService {
     private final VendaRepository vendaRepository;
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoEstoqueRepository movimentacaoRepository;
+    private final ClienteRepository clienteRepository;
 
     public VendaService(VendaRepository vendaRepository, ProdutoRepository produtoRepository,
-            MovimentacaoEstoqueRepository movimentacaoRepository) {
+            MovimentacaoEstoqueRepository movimentacaoRepository, ClienteRepository clienteRepository) {
         this.vendaRepository = vendaRepository;
         this.produtoRepository = produtoRepository;
         this.movimentacaoRepository = movimentacaoRepository;
+        this.clienteRepository = clienteRepository;
     }
 
     @Transactional
     public VendaResponse criar(VendaRequest request) {
         validarRequest(request);
+        Cliente cliente = buscarClienteAtivo(request.clienteId());
+        TipoPreco tipoPreco = cliente == null ? TipoPreco.VAREJO : cliente.getTipoCliente().getTipoPreco();
         List<ItemVendaRequest> itensRequest = new ArrayList<>(request.itens());
         List<Long> ids = validarEOrdenarIdsUnicos(itensRequest);
         Map<Long, Produto> produtos = bloquearProdutos(ids);
@@ -60,7 +67,7 @@ public class VendaService {
         for (ItemVendaRequest itemRequest : itensRequest) {
             Produto produto = produtos.get(itemRequest.produtoId());
             validarProdutoParaVenda(produto, itemRequest.quantidade());
-            BigDecimal precoOriginal = dinheiro(produto.getPrecoVarejo());
+            BigDecimal precoOriginal = dinheiro(tipoPreco == TipoPreco.REVENDA ? produto.getPrecoRevenda() : produto.getPrecoVarejo());
             BigDecimal precoPraticado = dinheiro(itemRequest.precoUnitario());
             BigDecimal subtotalItem = dinheiro(precoPraticado.multiply(BigDecimal.valueOf(itemRequest.quantidade())));
             calculados.add(new ItemCalculado(itemRequest, produto, precoOriginal, precoPraticado, subtotalItem));
@@ -72,7 +79,7 @@ public class VendaService {
             throw new IllegalArgumentException("O desconto não pode ser maior que o subtotal da venda.");
         }
 
-        Venda venda = novaVenda(request, subtotalVenda, desconto);
+        Venda venda = novaVenda(request, cliente, tipoPreco, subtotalVenda, desconto);
         venda = vendaRepository.saveAndFlush(venda);
         venda.setNumeroVenda(String.format("%06d", venda.getId()));
 
@@ -182,13 +189,13 @@ public class VendaService {
         if (produto.getQuantidadeEstoque() < quantidade) throw new OperacaoVendaInvalidaException("Estoque insuficiente para o produto " + produto.getNome() + ".");
     }
 
-    private Venda novaVenda(VendaRequest request, BigDecimal subtotal, BigDecimal desconto) {
+    private Venda novaVenda(VendaRequest request, Cliente cliente, TipoPreco tipoPreco, BigDecimal subtotal, BigDecimal desconto) {
         Venda venda = new Venda();
         venda.setNumeroVenda("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
-        venda.setClienteId(request.clienteId());
-        venda.setClienteNome(null);
-        venda.setClienteTipo(null);
-        venda.setTipoPrecoUtilizado(TipoPreco.VAREJO);
+        venda.setClienteId(cliente == null ? null : cliente.getId());
+        venda.setClienteNome(cliente == null ? null : cliente.getNomeRazaoSocial());
+        venda.setClienteTipo(cliente == null ? null : cliente.getTipoCliente().name());
+        venda.setTipoPrecoUtilizado(tipoPreco);
         venda.setSubtotal(subtotal);
         venda.setDesconto(desconto);
         venda.setTotal(dinheiro(subtotal.subtract(desconto)));
@@ -197,6 +204,15 @@ public class VendaService {
         venda.setDataHora(LocalDateTime.now());
         venda.setObservacoes(normalizarOpcional(request.observacoes()));
         return venda;
+    }
+
+    private Cliente buscarClienteAtivo(Long id) {
+        if (id == null) return null;
+        Cliente cliente = clienteRepository.findById(id).orElseThrow(() -> new ClienteNaoEncontradoException(id));
+        if (!Boolean.TRUE.equals(cliente.getAtivo())) {
+            throw new OperacaoVendaInvalidaException("O cliente selecionado está inativo.");
+        }
+        return cliente;
     }
 
     private ItemVenda criarItem(ItemCalculado calculado) {

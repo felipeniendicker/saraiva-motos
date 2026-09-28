@@ -98,3 +98,7 @@ Os testes automatizados não dependem de uma instância externa do MySQL. A vali
 - Credenciais são fornecidas por variáveis de ambiente e não são versionadas.
 
 Não foi incluído Docker Compose porque o ambiente desta etapa não possui Docker disponível. A configuração acima permite executar e validar com uma instalação local do MySQL.
+# Saraiva Motos
+
+O modo backend (`VITE_BACKEND_API_ENABLED=true`) utiliza MySQL para Produtos, Estoque, Clientes, Motos e Vendas. Dashboard e Relatórios ainda dependem dos dados legados do navegador e permanecem pendentes de migração; não há sincronização entre essas fontes.
+

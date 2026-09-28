@@ -20,8 +20,11 @@ import {
   searchActiveProducts
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
+import { BACKEND_API_ENABLED, findProductByCode as findProductByCodeApi, listProducts } from "../services/productsApi.js";
+import { listClients } from "../services/clientsApi.js";
+import { cancelSaleApi, createSale, listSales } from "../services/salesApi.js";
 
-function SalesCheckout({ db, onFinalizeSale }) {
+function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -34,7 +37,7 @@ function SalesCheckout({ db, onFinalizeSale }) {
   const [receiptSale, setReceiptSale] = useState(null);
   const codeInputRef = useRef(null);
 
-  const selectedCustomer = db.customers.find((customer) => customer.id === customerId) || null;
+  const selectedCustomer = db.customers.find((customer) => String(customer.id) === String(customerId)) || null;
   const priceType = getDefaultPriceType(selectedCustomer);
   const totals = calculateSaleTotals(items, discount);
   const searchResults = useMemo(
@@ -66,9 +69,11 @@ function SalesCheckout({ db, onFinalizeSale }) {
     focusCodeInput();
   }
 
-  function submitCode(event) {
+  async function submitCode(event) {
     event.preventDefault();
-    const result = findProductByCode(db.products, code);
+    const result = onFindProductByCode
+      ? await onFindProductByCode(code).then((product) => product ? ({ ok: true, product }) : ({ ok: false, message: "Produto ativo não encontrado." })).catch((error) => ({ ok: false, message: error.message }))
+      : findProductByCode(db.products, code);
     setCode("");
     if (!result.ok) {
       showError(result.message);
@@ -79,7 +84,7 @@ function SalesCheckout({ db, onFinalizeSale }) {
   }
 
   function changeCustomer(nextCustomerId) {
-    const customer = db.customers.find((item) => item.id === nextCustomerId) || null;
+    const customer = db.customers.find((item) => String(item.id) === String(nextCustomerId)) || null;
     const nextPriceType = getDefaultPriceType(customer);
     setCustomerId(nextCustomerId);
     setItems((current) => repriceCart(current, db.products, nextPriceType));
@@ -113,8 +118,8 @@ function SalesCheckout({ db, onFinalizeSale }) {
     setNotice(null);
   }
 
-  function finalizeSale() {
-    const result = onFinalizeSale({
+  async function finalizeSale() {
+    const result = await onFinalizeSale({
       clienteId: customerId || null,
       tipoPrecoUtilizado: priceType,
       itens: items,
@@ -302,7 +307,7 @@ function SalesCheckout({ db, onFinalizeSale }) {
   );
 }
 
-export default function SalesPage({ db, onFinalizeSale, onCancelSale }) {
+function SalesWorkspace({ db, onFinalizeSale, onCancelSale, onFindProductByCode }) {
   const [activeView, setActiveView] = useState("new");
 
   function showNewSale() {
@@ -334,9 +339,40 @@ export default function SalesPage({ db, onFinalizeSale, onCancelSale }) {
       </div>
 
       <div hidden={activeView !== "new"}>
-        <SalesCheckout db={db} onFinalizeSale={onFinalizeSale} />
+        <SalesCheckout db={db} onFinalizeSale={onFinalizeSale} onFindProductByCode={onFindProductByCode} />
       </div>
       {activeView === "history" && <SalesHistory db={db} onCancelSale={onCancelSale} />}
     </div>
   );
+}
+
+function BackendSalesPage() {
+  const [db, setDb] = useState({ products: [], customers: [], sales: [] });
+  const [error, setError] = useState("");
+  async function load() {
+    try {
+      const [products, customers, sales] = await Promise.all([listProducts(), listClients(), listSales()]);
+      setDb({ products, customers, sales }); setError("");
+    } catch (failure) { setError(failure.message); }
+  }
+  useEffect(() => { load(); }, []);
+  async function finalize(draft) {
+    try {
+      const sale = await createSale({
+        clienteId: draft.clienteId ? Number(draft.clienteId) : null,
+        itens: draft.itens.map((item) => ({ produtoId: item.produtoId, quantidade: item.quantidade, precoUnitario: item.precoUnitario })),
+        desconto: draft.desconto, formaPagamento: draft.formaPagamento, observacoes: draft.observacoes
+      });
+      await load(); return { ok: true, sale };
+    } catch (failure) { return { ok: false, message: failure.message }; }
+  }
+  async function cancel(id, reason) {
+    try { const sale = await cancelSaleApi(id, reason); await load(); return { ok: true, sale }; }
+    catch (failure) { return { ok: false, message: failure.message }; }
+  }
+  return <>{error && <div className="pdv-notice notice-error">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onFindProductByCode={findProductByCodeApi}/></>;
+}
+
+export default function SalesPage(props) {
+  return BACKEND_API_ENABLED ? <BackendSalesPage /> : <SalesWorkspace {...props} />;
 }

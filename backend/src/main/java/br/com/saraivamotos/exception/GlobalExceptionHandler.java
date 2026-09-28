@@ -33,6 +33,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
     }
 
+    @ExceptionHandler({ClienteNaoEncontradoException.class, MotoNaoEncontradaException.class})
+    public ResponseEntity<ApiError> handleCustomerNotFound(RuntimeException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+    }
+
     @ExceptionHandler(CodigoBarrasDuplicadoException.class)
     public ResponseEntity<ApiError> handleDuplicateBarcode(
             CodigoBarrasDuplicadoException exception,
@@ -49,6 +54,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(OperacaoVendaInvalidaException.class)
     public ResponseEntity<ApiError> handleInvalidSaleOperation(OperacaoVendaInvalidaException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(OperacaoClienteInvalidaException.class)
+    public ResponseEntity<ApiError> handleInvalidCustomerOperation(OperacaoClienteInvalidaException exception, HttpServletRequest request) {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 

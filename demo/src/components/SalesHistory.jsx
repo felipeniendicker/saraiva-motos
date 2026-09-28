@@ -60,8 +60,8 @@ export default function SalesHistory({ db, onCancelSale }) {
     setCancellationError("");
   }
 
-  function confirmCancellation() {
-    const result = onCancelSale(selectedSale.id, cancellationReason);
+  async function confirmCancellation() {
+    const result = await onCancelSale(selectedSale.id, cancellationReason);
     if (!result.ok) {
       setCancellationError(result.message);
       return;

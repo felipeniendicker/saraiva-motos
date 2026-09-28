@@ -1,0 +1,6 @@
+import test from "node:test"; import assert from "node:assert/strict";
+import { listClients, createClient, deactivateClient, listClientMotorcycles, deleteMotorcycle } from "./clientsApi.js";
+function mock(status=200, body={}) { global.fetch=async (url, options={}) => ({ ok: status>=200&&status<300, status, json: async()=>body, _url:url, _options:options }); }
+test("lista clientes ativos e busca", async()=>{ let called; global.fetch=async(url)=>{called=url;return {ok:true,status:200,json:async()=>[]};}; await listClients({search:" Ana "}); assert.match(called,/busca=Ana/); });
+test("cria e desativa cliente", async()=>{ let calls=[]; global.fetch=async(url,o={})=>{calls.push([url,o]);return {ok:true,status:200,json:async()=>({id:1})};}; await createClient({nomeRazaoSocial:"Ana"}); await deactivateClient(1); assert.equal(calls[0][1].method,"POST"); assert.equal(calls[1][1].method,"PATCH"); });
+test("lista e remove motos", async()=>{ let calls=[]; global.fetch=async(url,o={})=>{calls.push([url,o]);return {ok:true,status:o.method==="DELETE"?204:200,json:async()=>[]};}; await listClientMotorcycles(2); await deleteMotorcycle(3); assert.match(calls[0][0],/clientes\/2\/motos/); assert.equal(calls[1][1].method,"DELETE"); });

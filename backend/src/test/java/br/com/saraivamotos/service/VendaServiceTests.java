@@ -18,10 +18,17 @@ import br.com.saraivamotos.exception.OperacaoVendaInvalidaException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
 import br.com.saraivamotos.repository.ProdutoRepository;
 import br.com.saraivamotos.repository.VendaRepository;
+import br.com.saraivamotos.repository.ClienteRepository;
+import br.com.saraivamotos.domain.Cliente;
+import br.com.saraivamotos.domain.TipoCliente;
+import br.com.saraivamotos.domain.TipoPreco;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import br.com.saraivamotos.exception.ClienteNaoEncontradoException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,12 +52,13 @@ class VendaServiceTests {
 
     @Mock
     private MovimentacaoEstoqueRepository movimentacaoRepository;
+    @Mock private ClienteRepository clienteRepository;
 
     private VendaService service;
 
     @BeforeEach
     void setUp() {
-        service = new VendaService(vendaRepository, produtoRepository, movimentacaoRepository);
+        service = new VendaService(vendaRepository, produtoRepository, movimentacaoRepository, clienteRepository);
         lenient().when(vendaRepository.saveAndFlush(any(Venda.class))).thenAnswer(invocation -> {
             Venda venda = invocation.getArgument(0);
             venda.setId(42L);
@@ -66,7 +74,7 @@ class VendaServiceTests {
         Produto produto = produto(7, true);
         when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
 
-        VendaResponse response = service.criar(new VendaRequest(8L,
+        VendaResponse response = service.criar(new VendaRequest(null,
                 List.of(new ItemVendaRequest(1L, 2, new BigDecimal("30.00"))),
                 new BigDecimal("5.00"), FormaPagamento.PIX, "  balcão  "));
 
@@ -81,6 +89,52 @@ class VendaServiceTests {
         assertEquals(new BigDecimal("25.50"), response.itens().get(0).precoOriginal());
         assertEquals(new BigDecimal("30.00"), response.itens().get(0).precoUnitario());
         assertEquals(new BigDecimal("60.00"), response.itens().get(0).subtotal());
+    }
+
+    @Test
+    void criarComOficinaUsaRevendaEPreservaSnapshot() {
+        Produto produto = produto(7, true);
+        Cliente cliente = cliente(8L, TipoCliente.OFICINA, true);
+        when(clienteRepository.findById(8L)).thenReturn(Optional.of(cliente));
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+        VendaResponse response = service.criar(new VendaRequest(8L,
+                List.of(new ItemVendaRequest(1L, 1, new BigDecimal("20.00"))), BigDecimal.ZERO,
+                FormaPagamento.PIX, null));
+        assertEquals("Oficina Teste", response.clienteNome());
+        assertEquals("OFICINA", response.clienteTipo());
+        assertEquals(TipoPreco.REVENDA, response.tipoPrecoUtilizado());
+        assertEquals(new BigDecimal("20.00"), response.itens().get(0).precoOriginal());
+    }
+
+    @Test
+    void clienteInativoImpedeVendaAntesDeAlterarEstoque() {
+        when(clienteRepository.findById(8L)).thenReturn(Optional.of(cliente(8L, TipoCliente.CLIENTE_COMUM, false)));
+        assertThrows(OperacaoVendaInvalidaException.class, () -> service.criar(new VendaRequest(8L,
+                List.of(new ItemVendaRequest(1L, 1, BigDecimal.ONE)), BigDecimal.ZERO, FormaPagamento.PIX, null)));
+        verify(produtoRepository, never()).findAllByIdForUpdate(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(TipoCliente.class)
+    void aplicaPrecoPadraoDeCadaTipoDeCliente(TipoCliente tipo) {
+        Produto produto = produto(7, true);
+        when(clienteRepository.findById(8L)).thenReturn(Optional.of(cliente(8L, tipo, true)));
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+        VendaResponse response = service.criar(new VendaRequest(8L,
+                List.of(new ItemVendaRequest(1L, 1, new BigDecimal("19.00"))), BigDecimal.ZERO,
+                FormaPagamento.PIX, null));
+        BigDecimal esperado = tipo == TipoCliente.CLIENTE_COMUM ? new BigDecimal("25.50") : new BigDecimal("20.00");
+        assertEquals(esperado, response.itens().get(0).precoOriginal());
+        assertEquals(tipo.getTipoPreco(), response.tipoPrecoUtilizado());
+        assertEquals(new BigDecimal("19.00"), response.itens().get(0).precoUnitario());
+    }
+
+    @Test
+    void clienteInexistenteRetornaErroAntesDeAlterarEstoque() {
+        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ClienteNaoEncontradoException.class, () -> service.criar(new VendaRequest(99L,
+                List.of(new ItemVendaRequest(1L, 1, BigDecimal.ONE)), BigDecimal.ZERO, FormaPagamento.PIX, null)));
+        verify(produtoRepository, never()).findAllByIdForUpdate(any());
     }
 
     @Test
@@ -139,9 +193,14 @@ class VendaServiceTests {
         produto.setNome("Pastilha de freio");
         produto.setCodigoReferencia("REF-01");
         produto.setPrecoVarejo(new BigDecimal("25.50"));
+        produto.setPrecoRevenda(new BigDecimal("20.00"));
         produto.setQuantidadeEstoque(estoque);
         produto.setAtivo(ativo);
         return produto;
+    }
+
+    private Cliente cliente(Long id, TipoCliente tipo, boolean ativo) {
+        Cliente c = new Cliente(); c.setId(id); c.setNomeRazaoSocial("Oficina Teste"); c.setTipoCliente(tipo); c.setAtivo(ativo); return c;
     }
 
     private Venda vendaConcluida(Produto produto) {

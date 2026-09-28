@@ -1,0 +1,3 @@
+import test from "node:test"; import assert from "node:assert/strict"; import { createSale, cancelSaleApi } from "./salesApi.js";
+test("envia venda com cliente opcional", async()=>{ let payload; global.fetch=async(_u,o)=>{payload=JSON.parse(o.body);return {ok:true,status:201,json:async()=>({id:1})};}; await createSale({clienteId:null,itens:[]}); assert.equal(payload.clienteId,null); });
+test("cancela com motivo", async()=>{ let call; global.fetch=async(u,o)=>{call=[u,o];return {ok:true,status:200,json:async()=>({status:"CANCELADA"})};}; await cancelSaleApi(1,"erro"); assert.match(call[0],/1\/cancelar/); assert.equal(JSON.parse(call[1].body).motivo,"erro"); });
