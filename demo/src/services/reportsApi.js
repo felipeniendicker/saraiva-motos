@@ -1,9 +1,6 @@
-const API_URL = (import.meta.env?.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+import { apiRequest } from "./httpClient.js";
 async function request(path) {
-  const response = await fetch(`${API_URL}${path}`, { headers: { "Content-Type": "application/json" } });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(body?.message || "Não foi possível carregar o relatório.");
-  return body;
+  return apiRequest(path, {}, { defaultMessage: "Não foi possível carregar o relatório." });
 }
 export function getSalesReport({ startDate = "", endDate = "" } = {}) {
   const params = new URLSearchParams(); if (startDate) params.set("dataInicio", startDate); if (endDate) params.set("dataFim", endDate);

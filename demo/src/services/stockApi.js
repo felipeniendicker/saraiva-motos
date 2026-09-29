@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env?.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+import { apiRequest } from "./httpClient.js";
 
 export class StockApiError extends Error {
   constructor(message, status) {
@@ -9,15 +9,7 @@ export class StockApiError extends Error {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers }
-  });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new StockApiError(body?.message || "Não foi possível concluir a operação de estoque.", response.status);
-  }
-  return body;
+  return apiRequest(path, options, { errorClass: StockApiError, defaultMessage: "Não foi possível concluir a operação de estoque." });
 }
 
 export function addStock(data) {

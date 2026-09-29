@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Toast from "./components/Toast.jsx";
@@ -16,6 +16,9 @@ import ProductsPage from "./pages/ProductsPage.jsx";
 import InventoryPage from "./pages/InventoryPage.jsx";
 import SalesPage from "./pages/SalesPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import { getCurrentUser, login } from "./services/authApi.js";
+import { AUTH_UNAUTHORIZED_EVENT, clearAuthToken, getAuthToken, setAuthToken } from "./services/authSession.js";
 import { hasDuplicateBarcode, normalizeBarcode } from "./services/productLookup.js";
 import { BACKEND_API_ENABLED } from "./services/productsApi.js";
 import { cancelSale, completeSale } from "./services/sales.js";
@@ -92,7 +95,33 @@ const pageMeta = {
 export default function App() {
   const [db, setDb] = useState(() => initializeRuntimeDatabase(BACKEND_API_ENABLED, loadDatabase));
   const [toast, setToast] = useState(null);
+  const [auth, setAuth] = useState(() => ({ status: BACKEND_API_ENABLED ? "checking" : "authenticated", user: null }));
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!BACKEND_API_ENABLED) return undefined;
+
+    function handleUnauthorized() {
+      setAuth({ status: "unauthenticated", user: null });
+      navigate("/login", { replace: true });
+    }
+
+    globalThis.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    const token = getAuthToken();
+    if (!token) {
+      handleUnauthorized();
+    } else {
+      getCurrentUser()
+        .then((user) => {
+          setAuth({ status: "authenticated", user });
+          if (location.pathname === "/login") navigate("/dashboard", { replace: true });
+        })
+        .catch(handleUnauthorized);
+    }
+
+    return () => globalThis.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+  }, []);
 
   useEffect(() => {
     if (!toast) {
@@ -245,6 +274,27 @@ export default function App() {
     return result;
   }
 
+  async function handleLogin(email, senha) {
+    const result = await login(email, senha);
+    setAuthToken(result.token);
+    setAuth({ status: "authenticated", user: result.usuario });
+    navigate("/dashboard", { replace: true });
+  }
+
+  function handleLogout() {
+    clearAuthToken();
+    setAuth({ status: "unauthenticated", user: null });
+    navigate("/login", { replace: true });
+  }
+
+  if (BACKEND_API_ENABLED && auth.status === "checking") {
+    return <main className="login-shell"><section className="login-card"><p>Validando sessão...</p></section></main>;
+  }
+
+  if (BACKEND_API_ENABLED && auth.status !== "authenticated") {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   const meta = pageMeta[location.pathname] || pageMeta["/dashboard"];
 
   return (
@@ -255,11 +305,18 @@ export default function App() {
         <Header
           title={meta.title}
           subtitle={meta.subtitle}
+          actions={BACKEND_API_ENABLED ? (
+            <div className="session-actions">
+              <span>{auth.user?.email}</span>
+              <button className="ghost-button" type="button" onClick={handleLogout}>Sair</button>
+            </div>
+          ) : null}
         />
 
         <div className="content-area">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/dashboard"
               element={<DashboardPage db={db} />}

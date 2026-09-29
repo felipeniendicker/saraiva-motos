@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env?.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+import { apiRequest } from "./httpClient.js";
 
 export const BACKEND_API_ENABLED = String(import.meta.env?.VITE_BACKEND_API_ENABLED || "").toLowerCase() === "true";
 
@@ -11,20 +11,7 @@ export class ProductsApiError extends Error {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers
-    }
-  });
-
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new ProductsApiError(body?.message || "Não foi possível concluir a operação.", response.status);
-  }
-
-  return body;
+  return apiRequest(path, options, { errorClass: ProductsApiError });
 }
 
 export function listProducts({ includeInactive = false, search = "" } = {}) {

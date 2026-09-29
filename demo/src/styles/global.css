@@ -34,6 +34,66 @@ body {
   color: var(--text);
 }
 
+.login-shell {
+  align-items: center;
+  display: grid;
+  min-height: 100vh;
+  padding: 1.25rem;
+  place-items: center;
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  max-width: 480px;
+  padding: 2rem;
+  width: 100%;
+}
+
+.login-brand {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.login-brand h1,
+.login-brand p {
+  margin: 0;
+}
+
+.login-brand p,
+.session-actions span {
+  color: var(--muted);
+}
+
+.login-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.login-form label {
+  display: grid;
+  font-weight: 700;
+  gap: 0.45rem;
+}
+
+.login-error {
+  background: rgba(217, 75, 75, 0.1);
+  border-radius: 14px;
+  color: var(--red);
+  margin: 0;
+  padding: 0.8rem 1rem;
+}
+
+.session-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
 button,
 input,
 select,

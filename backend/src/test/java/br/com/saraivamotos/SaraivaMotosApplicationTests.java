@@ -5,6 +5,7 @@ import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
 import br.com.saraivamotos.repository.VendaRepository;
 import br.com.saraivamotos.repository.ClienteRepository;
 import br.com.saraivamotos.repository.MotoRepository;
+import br.com.saraivamotos.repository.UsuarioRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,7 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import static org.mockito.Mockito.mock;
 
 @ActiveProfiles("test")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @Import(SaraivaMotosApplicationTests.RepositoryTestConfiguration.class)
 class SaraivaMotosApplicationTests {
 
@@ -44,5 +45,6 @@ class SaraivaMotosApplicationTests {
 
         @Bean ClienteRepository clienteRepository() { return mock(ClienteRepository.class); }
         @Bean MotoRepository motoRepository() { return mock(MotoRepository.class); }
+        @Bean UsuarioRepository usuarioRepository() { return mock(UsuarioRepository.class); }
     }
 }

@@ -15,10 +15,13 @@ O frontend usa React/Vite, o backend usa Java 17 e Spring Boot, e a persistênci
 
 ## Execução local
 
-O backend recebe `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e, opcionalmente, `CORS_ALLOWED_ORIGINS` pelo ambiente. Nenhuma credencial deve ser versionada.
+O backend recebe `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` e, opcionalmente, `JWT_EXPIRATION_MS` e `CORS_ALLOWED_ORIGINS` pelo ambiente. `JWT_SECRET` deve ter pelo menos 32 bytes. Nenhuma credencial deve ser versionada.
+
+Para criar o primeiro usuário, defina temporariamente `INITIAL_USER_EMAIL` e `INITIAL_USER_PASSWORD` antes da primeira inicialização. O e-mail é normalizado e a senha é armazenada com BCrypt. O bootstrap é idempotente: se o e-mail já existir, sua senha não será sobrescrita. Depois da criação, as duas variáveis podem ser removidas do ambiente.
 
 ```powershell
 cd backend
+$env:JWT_SECRET = "defina-um-segredo-local-com-pelo-menos-32-bytes"
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -34,7 +37,13 @@ $env:VITE_API_URL = "http://localhost:8080"
 npm run dev
 ```
 
-No modo backend não há leitura, escrita, sincronização ou fallback para `localStorage`, e nenhum dado seed é inicializado. Falhas da API são exibidas como erro.
+No modo backend não há leitura, escrita, sincronização ou fallback do banco operacional em `localStorage`, e nenhum dado seed é inicializado. A única persistência local é o JWT, na chave exclusiva `saraiva-motos-auth-token`; senhas nunca são armazenadas. Falhas da API são exibidas como erro.
+
+## Autenticação
+
+O acesso ao modo backend exige e-mail e senha. `POST /api/auth/login` e `GET /api/health` são públicos; `/api/auth/me` e todos os módulos operacionais exigem `Authorization: Bearer <token>`. O token é stateless, expira por padrão após 8 horas e não possui refresh token. O logout remove o token no frontend.
+
+Esta etapa não possui cadastro público, recuperação de senha, perfis, cargos ou permissões diferentes. Todo usuário ativo autenticado acessa os mesmos módulos.
 
 ## Compatibilidade legada
 
@@ -58,4 +67,4 @@ npm test -- --run
 npm run build
 ```
 
-Não há autenticação nesta versão. A separação React → API → Services → Repositories → MySQL permite acrescentar Spring Security/JWT posteriormente sem alterar a persistência dos módulos operacionais.
+A autenticação usa Spring Security, BCrypt e JWT sem alterar a persistência ou as regras dos módulos operacionais.

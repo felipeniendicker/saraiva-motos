@@ -21,6 +21,13 @@ public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(
+            CredenciaisInvalidasException exception,
+            HttpServletRequest request) {
+        return buildResponse(HttpStatus.UNAUTHORIZED, exception.getMessage(), request);
+    }
+
     @ExceptionHandler(ProdutoNaoEncontradoException.class)
     public ResponseEntity<ApiError> handleNotFound(
             ProdutoNaoEncontradoException exception,

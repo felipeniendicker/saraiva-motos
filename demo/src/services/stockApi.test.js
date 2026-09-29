@@ -51,8 +51,13 @@ test("propaga mensagem e status de erro da API", async () => {
   });
 });
 
-test("serviço remoto não acessa localStorage", async () => {
-  global.localStorage = new Proxy({}, { get() { throw new Error("localStorage não deveria ser usado"); } });
+test("serviço remoto não acessa banco operacional no localStorage", async () => {
+  global.localStorage = {
+    getItem(key) {
+      if (key !== "saraiva-motos-auth-token") throw new Error("banco operacional não deveria ser acessado");
+      return null;
+    }
+  };
   global.fetch = async () => response([]);
   await listStockMovements();
   delete global.localStorage;
