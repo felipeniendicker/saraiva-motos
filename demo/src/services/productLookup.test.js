@@ -5,6 +5,7 @@ import {
   PRODUCT_LOOKUP_STATUS,
   applyLookupToProductForm,
   hasDuplicateBarcode,
+  interpretSalesLookupResponse,
   lookupProductByBarcode,
   lookupProviderMock,
   normalizeBarcode
@@ -74,6 +75,7 @@ test("50. produto externo encontrado retorna estrutura normalizada", async () =>
     marca: "Marca X",
     categoria: "Freios",
     descricao: "Descrição",
+    aplicacao: null,
     imagemUrl: null,
     source: "TEST"
   });
@@ -172,4 +174,47 @@ test("lookup estruturado retorna produto local inclusive inativo", async () => {
   });
   assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_LOCAL);
   assert.equal(result.product.ativo, false);
+});
+
+test("sugestão UPCitemdb preserva origem e pré-preenche somente dados permitidos", async () => {
+  const result = await lookupProductByBarcode("00123456", {
+    findLookup: async () => ({
+      encontrado: true,
+      origem: "UPCITEMDB",
+      cadastradoLocalmente: false,
+      sugestao: { nome: "Peça", marca: "Marca", categoria: "Freios", descricao: "Descrição", aplicacao: "Modelo X" }
+    })
+  });
+  const form = applyLookupToProductForm({ ...baseForm, valorCusto: "12", precoVarejo: "25", precoRevenda: "20", quantidadeEstoque: "4" }, result);
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_EXTERNAL);
+  assert.equal(result.source, "UPCITEMDB");
+  assert.equal(form.nome, "Peça");
+  assert.equal(form.aplicacao, "Modelo X");
+  assert.equal(form.valorCusto, "12");
+  assert.equal(form.precoVarejo, "25");
+  assert.equal(form.precoRevenda, "20");
+  assert.equal(form.quantidadeEstoque, "4");
+});
+
+test("indisponibilidade externa mantém cadastro manual disponível", async () => {
+  const result = await lookupProductByBarcode("00123456", {
+    findLookup: async () => ({ encontrado: false, origem: "EXTERNO_INDISPONIVEL", mensagem: "Consulta temporariamente indisponível." })
+  });
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.ERROR);
+  assert.equal(result.barcode, "00123456");
+  assert.match(result.message, /indisponível/i);
+});
+
+test("PDV não permite adicionar sugestão externa ao carrinho", () => {
+  const result = interpretSalesLookupResponse({ encontrado: true, origem: "UPCITEMDB", cadastradoLocalmente: false, sugestao: { nome: "Peça" } }, "00123456");
+  assert.equal(result.ok, false);
+  assert.equal(result.product, undefined);
+  assert.equal(result.code, "00123456");
+  assert.match(result.message, /cadastre/i);
+});
+
+test("PDV mantém fluxo normal para produto local", () => {
+  const product = { id: 7, nome: "Peça local" };
+  const result = interpretSalesLookupResponse({ encontrado: true, cadastradoLocalmente: true, produto: product }, "00123456");
+  assert.deepEqual(result, { ok: true, product });
 });

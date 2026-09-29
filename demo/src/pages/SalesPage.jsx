@@ -25,6 +25,7 @@ import { formatCurrency } from "../utils/formatters.js";
 import { BACKEND_API_ENABLED, lookupProductByCode, listProducts } from "../services/productsApi.js";
 import { listClients } from "../services/clientsApi.js";
 import { cancelSaleApi, createSale, listSales } from "../services/salesApi.js";
+import { interpretSalesLookupResponse } from "../services/productLookup.js";
 
 function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [code, setCode] = useState("");
@@ -81,9 +82,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     if (onLookupProductByCode) {
       try {
         const response = await onLookupProductByCode(normalized);
-        result = response?.cadastradoLocalmente && response.produto
-          ? { ok: true, product: response.produto }
-          : { ok: false, message: "Produto não encontrado.", code: normalized };
+        result = interpretSalesLookupResponse(response, normalized);
       } catch (error) {
         result = { ok: false, message: error.message };
       }

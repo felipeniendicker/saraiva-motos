@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import br.com.saraivamotos.domain.Produto;
+import br.com.saraivamotos.dto.ProdutoSugestaoResponse;
 import br.com.saraivamotos.repository.ProdutoRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class ProductLookupServiceTests {
@@ -76,6 +78,52 @@ class ProductLookupServiceTests {
         assertEquals("NAO_ENCONTRADO", result.origem());
         assertNull(result.produto());
         assertNull(result.sugestao());
+    }
+
+    @Test
+    void callsProviderOnlyAfterLocalMissAndReturnsExternalSuggestion() {
+        ProductLookupProvider provider = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(provider));
+        when(repository.findByCodigoBarras("00123456")).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaOrderByIdAsc("00123456")).thenReturn(List.of());
+        when(provider.supports("00123456")).thenReturn(true);
+        when(provider.lookup("00123456")).thenReturn(Optional.of(
+                new ProdutoSugestaoResponse("UPCITEMDB", "00123456", "Peça", null, null, null, null)));
+
+        var result = service.lookup("00123456");
+
+        assertTrue(result.encontrado());
+        assertFalse(result.cadastradoLocalmente());
+        assertEquals("UPCITEMDB", result.origem());
+        verify(provider).lookup("00123456");
+    }
+
+    @Test
+    void doesNotCallProviderForInternalReference() {
+        ProductLookupProvider provider = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(provider));
+        when(repository.findByCodigoBarras("PF-001")).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaOrderByIdAsc("PF-001")).thenReturn(List.of());
+        when(provider.supports("PF-001")).thenReturn(false);
+
+        assertEquals("NAO_ENCONTRADO", service.lookup("PF-001").origem());
+        verify(provider, never()).lookup("PF-001");
+    }
+
+    @Test
+    void providerFailureReturnsSafeStructuredFallback() {
+        ProductLookupProvider provider = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(provider));
+        when(repository.findByCodigoBarras("00123456")).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaOrderByIdAsc("00123456")).thenReturn(List.of());
+        when(provider.supports("00123456")).thenReturn(true);
+        when(provider.lookup("00123456")).thenThrow(new ProductLookupProviderUnavailableException("timeout"));
+
+        var result = service.lookup("00123456");
+
+        assertFalse(result.encontrado());
+        assertEquals("EXTERNO_INDISPONIVEL", result.origem());
+        assertTrue(result.mensagem().contains("cadastrar"));
     }
 
     private Produto product(boolean active) {

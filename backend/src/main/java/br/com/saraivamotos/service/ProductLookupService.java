@@ -36,14 +36,22 @@ public class ProductLookupService {
             return ProdutoLookupResponse.local(normalized, ProdutoResponse.from(local));
         }
 
+        boolean externalUnavailable = false;
         for (ProductLookupProvider provider : providers) {
-            var suggestion = provider.lookup(normalized);
-            if (suggestion.isPresent()) {
-                ProdutoSugestaoResponse value = suggestion.get();
-                return ProdutoLookupResponse.externa(normalized, value);
+            if (!provider.supports(normalized)) continue;
+            try {
+                var suggestion = provider.lookup(normalized);
+                if (suggestion.isPresent()) {
+                    ProdutoSugestaoResponse value = suggestion.get();
+                    return ProdutoLookupResponse.externa(normalized, value);
+                }
+            } catch (ProductLookupProviderUnavailableException exception) {
+                externalUnavailable = true;
             }
         }
-        return ProdutoLookupResponse.naoEncontrado(normalized);
+        return externalUnavailable
+                ? ProdutoLookupResponse.indisponivel(normalized)
+                : ProdutoLookupResponse.naoEncontrado(normalized);
     }
 
     private String normalize(String codigo) {

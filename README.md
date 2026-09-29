@@ -61,9 +61,27 @@ Vendas canceladas permanecem no histórico, mas não entram em faturamento, quan
 
 O PDV consulta primeiro o cadastro local pelo código de barras exato e depois pela referência exata. Produto ativo com estoque é adicionado ao carrinho; leituras repetidas incrementam a mesma linha dentro do saldo disponível. Produtos inativos, sem estoque ou inexistentes produzem mensagens específicas. Em Produtos, um código existente apresenta o cadastro e um código desconhecido oferece “Cadastrar com este código”, sem salvar automaticamente.
 
-`GET /api/produtos/codigo/{codigo}` continua sendo a consulta operacional local de produto ativo. `GET /api/produtos/lookup/{codigo}` fornece resultado estruturado e está preparado para providers externos. Nenhum provider externo está configurado nesta etapa e o antigo mock não participa do fluxo de produção.
+`GET /api/produtos/codigo/{codigo}` continua sendo a consulta operacional local de produto ativo. `GET /api/produtos/lookup/{codigo}` fornece resultado estruturado e usa uma estratégia local-first: procura no MySQL por código de barras e referência e só consulta uma fonte externa quando não encontra cadastro local. O endpoint continua protegido por JWT e o antigo mock não participa do fluxo de produção.
 
-Providers futuros podem sugerir nome, descrição, marca, categoria e aplicação somente quando houver fonte identificada e confirmação do funcionário. Custo, preços, estoque, estoque mínimo e margem nunca devem ser preenchidos por provider. Não há IA, câmera, OCR, WebUSB ou acesso serial nesta implementação.
+### Consulta auxiliar no UPCitemdb
+
+O UPCitemdb é um provider auxiliar e experimental para identificar códigos desconhecidos. A integração usa o endpoint gratuito oficial `https://api.upcitemdb.com/prod/trial/lookup`, que não exige cadastro ou chave, respeitando os limites publicados pelo serviço. Somente códigos numéricos de 8 a 14 dígitos são enviados; referências internas alfanuméricas continuam restritas à consulta local. A API externa nunca é chamada para um produto já cadastrado.
+
+Configuração opcional do backend:
+
+- `UPCITEMDB_ENABLED=true` habilita o provider (padrão de desenvolvimento);
+- `UPCITEMDB_ENABLED=false` desabilita qualquer consulta externa sem afetar o lookup local;
+- `UPCITEMDB_BASE_URL` altera a URL base, principalmente para testes controlados;
+- `UPCITEMDB_CONNECT_TIMEOUT=2500ms` define o timeout de conexão;
+- `UPCITEMDB_READ_TIMEOUT=4000ms` define o timeout de leitura.
+
+Não há retry automático nem tentativa de contornar o limite gratuito. HTTP 429, erros externos, timeout, falha de rede e resposta inválida produzem um fallback seguro para cadastro manual. Assim, a operação e as vendas de itens cadastrados não dependem da internet nem do UPCitemdb.
+
+Uma resposta externa é sempre exibida como sugestão não confirmada. Podem ser sugeridos código de barras, nome, marca, categoria, descrição e modelo/aplicação quando efetivamente retornados. Imagens, ofertas e preços da internet são ignorados e não há download ou persistência de arquivos. Custo, preço de varejo, preço de revenda, estoque, estoque mínimo e margem continuam sendo informados e revisados pelo funcionário. A sugestão não é salva automaticamente e não pode entrar no carrinho antes de virar um Produto real no MySQL.
+
+Para medir a cobertura real em motopeças, separe uma amostra de 20 a 30 produtos da loja e registre: total consultado, encontrado ou não encontrado, resultado correto e resultado incorreto/incompleto. Calcule a taxa de localização (`encontrados / total`) e a taxa de resultado útil (`corretos / total`). A base é genérica, portanto esse teste é necessário antes de qualquer conclusão sobre cobertura. A interface de providers permite adicionar futuramente uma integração oficial do Mercado Livre sem reescrever Produtos ou PDV; ela não faz parte desta etapa e scraping não deve ser usado.
+
+Não há IA, câmera, OCR, WebUSB, acesso serial, Redis ou cache distribuído nesta implementação.
 
 ## Validação
 

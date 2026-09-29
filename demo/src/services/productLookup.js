@@ -99,6 +99,7 @@ function normalizeProviderResult(result, barcode) {
     marca: result.marca || null,
     categoria: result.categoria || null,
     descricao: result.descricao || null,
+    aplicacao: result.aplicacao || null,
     imagemUrl: result.imagemUrl || null,
     source: result.source || null
   };
@@ -129,6 +130,15 @@ export async function lookupProductByBarcode(
           source: response.origem,
           ...response.sugestao
         }, normalized);
+      }
+      if (response?.origem === "EXTERNO_INDISPONIVEL") {
+        return {
+          status: PRODUCT_LOOKUP_STATUS.ERROR,
+          found: false,
+          barcode: normalized,
+          source: response.origem,
+          message: response.mensagem || "Consulta externa temporariamente indisponível."
+        };
       }
       return { status: PRODUCT_LOOKUP_STATUS.NOT_FOUND, found: false, barcode: normalized, source: response?.origem || null };
     }
@@ -182,7 +192,26 @@ export function applyLookupToProductForm(form, lookup) {
     nome: lookup.nome || form.nome,
     marca: lookup.marca || form.marca,
     categoria: lookup.categoria || form.categoria,
+    aplicacao: lookup.aplicacao || form.aplicacao,
     observacoes: lookup.descricao || form.observacoes
+  };
+}
+
+export function interpretSalesLookupResponse(response, code) {
+  if (response?.cadastradoLocalmente && response.produto) {
+    return { ok: true, product: response.produto };
+  }
+  if (response?.encontrado && response.sugestao) {
+    return {
+      ok: false,
+      code,
+      message: "Produto encontrado em fonte externa. Cadastre e confirme os dados antes da venda."
+    };
+  }
+  return {
+    ok: false,
+    code,
+    message: response?.mensagem || "Produto não encontrado. Você pode cadastrá-lo manualmente."
   };
 }
 

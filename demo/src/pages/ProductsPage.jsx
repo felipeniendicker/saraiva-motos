@@ -278,8 +278,9 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         {lookupResult.status === PRODUCT_LOOKUP_STATUS.FOUND_EXTERNAL && (
           <div className="lookup-result lookup-external">
             <div>
-              <span className="status-pill status-aguardando">Informações encontradas</span>
+              <span className="status-pill status-aguardando">Produto encontrado em fonte externa</span>
               <h4>{lookupResult.nome || "Produto sem nome informado"}</h4>
+              <p>Fonte: <strong>{lookupResult.source || "Externa"}</strong> · revise os dados antes de cadastrar.</p>
               <p>{lookupResult.marca || "Marca não informada"} · {lookupResult.categoria || "Categoria não informada"}</p>
               {lookupResult.descricao && <p>{lookupResult.descricao}</p>}
             </div>
