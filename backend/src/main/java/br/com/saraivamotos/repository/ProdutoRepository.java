@@ -43,6 +43,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     Optional<Produto> findFirstByCodigoReferenciaAndAtivoTrueOrderByIdAsc(String codigoReferencia);
 
+    List<Produto> findByCodigoReferenciaAndAtivoTrueOrderByIdAsc(String codigoReferencia);
+
+    List<Produto> findByCodigoReferenciaOrderByIdAsc(String codigoReferencia);
+
     @Query("""
             SELECT p
             FROM Produto p

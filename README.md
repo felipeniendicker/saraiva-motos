@@ -55,6 +55,16 @@ O Dashboard apresenta totais gerais de produtos e clientes ativos, estoque baixo
 
 Vendas canceladas permanecem no histórico, mas não entram em faturamento, quantidade operacional, ticket médio ou ranking. O ranking soma subtotais dos itens antes do desconto global, pois não existe rateio por item.
 
+## Código de barras e leitor USB
+
+`codigoReferencia` e `codigoBarras` permanecem campos separados e textuais; zeros à esquerda são preservados. No PDV e em Produtos, um leitor USB HID funciona como teclado: mantenha o campo de código focado, faça a leitura e o Enter executará somente a consulta.
+
+O PDV consulta primeiro o cadastro local pelo código de barras exato e depois pela referência exata. Produto ativo com estoque é adicionado ao carrinho; leituras repetidas incrementam a mesma linha dentro do saldo disponível. Produtos inativos, sem estoque ou inexistentes produzem mensagens específicas. Em Produtos, um código existente apresenta o cadastro e um código desconhecido oferece “Cadastrar com este código”, sem salvar automaticamente.
+
+`GET /api/produtos/codigo/{codigo}` continua sendo a consulta operacional local de produto ativo. `GET /api/produtos/lookup/{codigo}` fornece resultado estruturado e está preparado para providers externos. Nenhum provider externo está configurado nesta etapa e o antigo mock não participa do fluxo de produção.
+
+Providers futuros podem sugerir nome, descrição, marca, categoria e aplicação somente quando houver fonte identificada e confirmação do funcionário. Custo, preços, estoque, estoque mínimo e margem nunca devem ser preenchidos por provider. Não há IA, câmera, OCR, WebUSB ou acesso serial nesta implementação.
+
 ## Validação
 
 ```powershell

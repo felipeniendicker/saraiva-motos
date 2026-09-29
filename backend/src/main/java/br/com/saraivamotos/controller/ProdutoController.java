@@ -4,6 +4,8 @@ import java.util.List;
 
 import br.com.saraivamotos.dto.ProdutoRequest;
 import br.com.saraivamotos.dto.ProdutoResponse;
+import br.com.saraivamotos.dto.ProdutoLookupResponse;
+import br.com.saraivamotos.service.ProductLookupService;
 import br.com.saraivamotos.service.ProdutoService;
 
 import jakarta.validation.Valid;
@@ -25,9 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProdutoController {
 
     private final ProdutoService service;
+    private final ProductLookupService lookupService;
 
-    public ProdutoController(ProdutoService service) {
+    public ProdutoController(ProdutoService service, ProductLookupService lookupService) {
         this.service = service;
+        this.lookupService = lookupService;
     }
 
     @PostMapping
@@ -50,6 +54,11 @@ public class ProdutoController {
     @GetMapping("/codigo/{codigo}")
     public ProdutoResponse buscarPorCodigo(@PathVariable String codigo) {
         return service.buscarPorCodigo(codigo);
+    }
+
+    @GetMapping("/lookup/{codigo}")
+    public ProdutoLookupResponse lookup(@PathVariable String codigo) {
+        return lookupService.lookup(codigo);
     }
 
     @PutMapping("/{id}")

@@ -23,8 +23,8 @@ const baseForm = {
   estoqueMinimo: "0"
 };
 
-test("46. normalização remove espaços e caracteres acidentais", () => {
-  assert.equal(normalizeBarcode("  789 123/456@789  "), "789123456789");
+test("46. normalização remove somente espaços acidentais", () => {
+  assert.equal(normalizeBarcode("  789 123/456@789  "), "789123/456@789");
 });
 
 test("47. normalização preserva zeros à esquerda", () => {
@@ -157,4 +157,19 @@ test("59. produto ausente na API permite consultar provider externo", async () =
 
   assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_EXTERNAL);
   assert.equal(result.nome, "Produto externo");
+});
+
+test("modo de produção não usa provider mock por padrão", async () => {
+  const result = await lookupProductByBarcode(MOCK_PRODUCT_CODES.FOUND);
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.NOT_FOUND);
+  assert.equal(result.found, false);
+});
+
+test("lookup estruturado retorna produto local inclusive inativo", async () => {
+  const product = { id: 4, nome: "Peça inativa", ativo: false, codigoBarras: "000123" };
+  const result = await lookupProductByBarcode("000123", {
+    findLookup: async () => ({ encontrado: true, origem: "LOCAL", cadastradoLocalmente: true, produto: product })
+  });
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.FOUND_LOCAL);
+  assert.equal(result.product.ativo, false);
 });

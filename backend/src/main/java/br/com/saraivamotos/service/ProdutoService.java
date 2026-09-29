@@ -7,6 +7,7 @@ import br.com.saraivamotos.domain.Produto;
 import br.com.saraivamotos.dto.ProdutoRequest;
 import br.com.saraivamotos.dto.ProdutoResponse;
 import br.com.saraivamotos.exception.CodigoBarrasDuplicadoException;
+import br.com.saraivamotos.exception.CodigoProdutoAmbiguoException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.repository.ProdutoRepository;
 
@@ -50,17 +51,24 @@ public class ProdutoService {
     public ProdutoResponse buscarPorCodigo(String codigo) {
         String codigoNormalizado = normalizarObrigatorio(codigo);
         Produto produto = repository.findFirstByCodigoBarrasAndAtivoTrue(codigoNormalizado)
-                .or(() -> repository.findFirstByCodigoReferenciaAndAtivoTrueOrderByIdAsc(codigoNormalizado))
-                .orElseThrow(() -> new ProdutoNaoEncontradoException(
-                        "Produto ativo não encontrado para o código informado."));
+                .orElseGet(() -> buscarReferenciaAtivaSemAmbiguidade(codigoNormalizado));
         return ProdutoResponse.from(produto);
+    }
+
+    private Produto buscarReferenciaAtivaSemAmbiguidade(String codigo) {
+        List<Produto> encontrados = repository.findByCodigoReferenciaAndAtivoTrueOrderByIdAsc(codigo);
+        if (encontrados.size() > 1) {
+            throw new CodigoProdutoAmbiguoException();
+        }
+        return encontrados.stream().findFirst().orElseThrow(() -> new ProdutoNaoEncontradoException(
+                "Produto ativo não encontrado para o código informado."));
     }
 
     @Transactional
     public ProdutoResponse atualizar(Long id, ProdutoRequest request) {
         Produto produto = encontrarPorIdParaAtualizar(id);
         Integer estoqueAtual = produto.getQuantidadeEstoque();
-        String codigoBarras = normalizarOpcional(request.codigoBarras());
+        String codigoBarras = normalizarCodigoBarras(request.codigoBarras());
         validarCodigoBarras(codigoBarras, id);
         aplicarDados(produto, request);
         produto.setQuantidadeEstoque(estoqueAtual);
@@ -108,7 +116,7 @@ public class ProdutoService {
     private void aplicarDados(Produto produto, ProdutoRequest request) {
         produto.setNome(request.nome().trim());
         produto.setCodigoReferencia(normalizarReferencia(request.codigoReferencia()));
-        produto.setCodigoBarras(normalizarOpcional(request.codigoBarras()));
+        produto.setCodigoBarras(normalizarCodigoBarras(request.codigoBarras()));
         produto.setMarca(normalizarOpcional(request.marca()));
         produto.setCategoria(normalizarOpcional(request.categoria()));
         produto.setAplicacao(normalizarOpcional(request.aplicacao()));
@@ -138,5 +146,10 @@ public class ProdutoService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizarCodigoBarras(String value) {
+        String normalized = normalizarOpcional(value);
+        return normalized == null ? null : normalized.replaceAll("\\s+", "");
     }
 }

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import BarcodeInput from "../components/BarcodeInput.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import SalesHistory from "../components/SalesHistory.jsx";
@@ -20,11 +22,11 @@ import {
   searchActiveProducts
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
-import { BACKEND_API_ENABLED, findProductByCode as findProductByCodeApi, listProducts } from "../services/productsApi.js";
+import { BACKEND_API_ENABLED, lookupProductByCode, listProducts } from "../services/productsApi.js";
 import { listClients } from "../services/clientsApi.js";
 import { cancelSaleApi, createSale, listSales } from "../services/salesApi.js";
 
-function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
+function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -35,7 +37,9 @@ function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
   const [notice, setNotice] = useState(null);
   const [lastSale, setLastSale] = useState(null);
   const [receiptSale, setReceiptSale] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const codeInputRef = useRef(null);
+  const navigate = useNavigate();
 
   const selectedCustomer = db.customers.find((customer) => String(customer.id) === String(customerId)) || null;
   const priceType = getDefaultPriceType(selectedCustomer);
@@ -69,18 +73,37 @@ function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
     focusCodeInput();
   }
 
-  async function submitCode(event) {
-    event.preventDefault();
-    const result = onFindProductByCode
-      ? await onFindProductByCode(code).then((product) => product ? ({ ok: true, product }) : ({ ok: false, message: "Produto ativo não encontrado." })).catch((error) => ({ ok: false, message: error.message }))
-      : findProductByCode(db.products, code);
+  async function performCodeLookup(value) {
+    const normalized = String(value || "").trim();
+    if (!normalized || lookupLoading) return;
+    setLookupLoading(true);
+    let result;
+    if (onLookupProductByCode) {
+      try {
+        const response = await onLookupProductByCode(normalized);
+        result = response?.cadastradoLocalmente && response.produto
+          ? { ok: true, product: response.produto }
+          : { ok: false, message: "Produto não encontrado.", code: normalized };
+      } catch (error) {
+        result = { ok: false, message: error.message };
+      }
+    } else {
+      result = findProductByCode(db.products, normalized);
+    }
     setCode("");
     if (!result.ok) {
-      showError(result.message);
+      setNotice({ type: "error", message: result.message, code: result.code });
+      setLookupLoading(false);
       focusCodeInput();
       return;
     }
     addProduct(result.product);
+    setLookupLoading(false);
+  }
+
+  function submitCode(event) {
+    event.preventDefault();
+    performCodeLookup(code);
   }
 
   function changeCustomer(nextCustomerId) {
@@ -161,16 +184,18 @@ function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
           <form className="scan-form" onSubmit={submitCode}>
             <label htmlFor="pdv-code">Código de barras ou referência</label>
             <div className="scan-input-row">
-              <input
+              <BarcodeInput
                 id="pdv-code"
                 ref={codeInputRef}
                 className="scan-input"
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
+                onSubmit={performCodeLookup}
+                disabled={lookupLoading}
                 placeholder="Digite ou leia o código"
                 autoComplete="off"
               />
-              <button className="primary-button">Adicionar</button>
+              <button className="primary-button" disabled={lookupLoading}>{lookupLoading ? "Buscando..." : "Adicionar"}</button>
             </div>
           </form>
 
@@ -217,7 +242,12 @@ function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
         </div>
       </Panel>
 
-      {notice && <div className={`pdv-notice notice-${notice.type}`} role="status">{notice.message}</div>}
+      {notice && (
+        <div className={`pdv-notice notice-${notice.type}`} role="status">
+          <span>{notice.message}</span>
+          {notice.code && <button type="button" className="secondary-button" onClick={() => navigate(`/pecas?codigo=${encodeURIComponent(notice.code)}`)}>Cadastrar produto</button>}
+        </div>
+      )}
 
       <div className="pdv-layout">
         <Panel title={`Carrinho (${items.length})`} description="Ajuste quantidades e preços quando necessário.">
@@ -307,7 +337,7 @@ function SalesCheckout({ db, onFinalizeSale, onFindProductByCode }) {
   );
 }
 
-function SalesWorkspace({ db, onFinalizeSale, onCancelSale, onFindProductByCode }) {
+function SalesWorkspace({ db, onFinalizeSale, onCancelSale, onLookupProductByCode }) {
   const [activeView, setActiveView] = useState("new");
 
   function showNewSale() {
@@ -339,7 +369,7 @@ function SalesWorkspace({ db, onFinalizeSale, onCancelSale, onFindProductByCode 
       </div>
 
       <div hidden={activeView !== "new"}>
-        <SalesCheckout db={db} onFinalizeSale={onFinalizeSale} onFindProductByCode={onFindProductByCode} />
+        <SalesCheckout db={db} onFinalizeSale={onFinalizeSale} onLookupProductByCode={onLookupProductByCode} />
       </div>
       {activeView === "history" && <SalesHistory db={db} onCancelSale={onCancelSale} />}
     </div>
@@ -370,7 +400,7 @@ function BackendSalesPage() {
     try { const sale = await cancelSaleApi(id, reason); await load(); return { ok: true, sale }; }
     catch (failure) { return { ok: false, message: failure.message }; }
   }
-  return <>{error && <div className="pdv-notice notice-error">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onFindProductByCode={findProductByCodeApi}/></>;
+  return <>{error && <div className="pdv-notice notice-error">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onLookupProductByCode={lookupProductByCode}/></>;
 }
 
 export default function SalesPage(props) {

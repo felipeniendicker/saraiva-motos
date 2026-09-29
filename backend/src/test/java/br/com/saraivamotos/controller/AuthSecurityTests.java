@@ -18,12 +18,15 @@ import br.com.saraivamotos.config.SecurityConfig;
 import br.com.saraivamotos.domain.Usuario;
 import br.com.saraivamotos.dto.LoginResponse;
 import br.com.saraivamotos.dto.UsuarioResponse;
+import br.com.saraivamotos.dto.ProdutoLookupResponse;
 import br.com.saraivamotos.exception.CredenciaisInvalidasException;
 import br.com.saraivamotos.exception.GlobalExceptionHandler;
 import br.com.saraivamotos.repository.UsuarioRepository;
 import br.com.saraivamotos.security.JwtAuthenticationFilter;
 import br.com.saraivamotos.security.JwtService;
 import br.com.saraivamotos.service.AuthService;
+import br.com.saraivamotos.service.ProdutoService;
+import br.com.saraivamotos.service.ProductLookupService;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
@@ -36,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {AuthController.class, HealthController.class})
+@WebMvcTest(controllers = {AuthController.class, HealthController.class, ProdutoController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtService.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = {
         "app.jwt.secret=test-secret-with-at-least-thirty-two-bytes",
@@ -49,6 +52,8 @@ class AuthSecurityTests {
     @Autowired private JwtService jwtService;
     @MockitoBean private UsuarioRepository usuarioRepository;
     @MockitoBean private AuthService authService;
+    @MockitoBean private ProdutoService produtoService;
+    @MockitoBean private ProductLookupService productLookupService;
     private Usuario usuario;
 
     @BeforeEach
@@ -123,5 +128,19 @@ class AuthSecurityTests {
                     .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, containsString("Authorization")))
                     .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, not("*")));
         }
+    }
+
+    @Test
+    void lookupEndpointWorksWithJwtAndRemainsProtected() throws Exception {
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario));
+        when(productLookupService.lookup("000123"))
+                .thenReturn(ProdutoLookupResponse.naoEncontrado("000123"));
+        mockMvc.perform(get("/api/produtos/lookup/000123"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/produtos/lookup/000123")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtService.generateToken(usuario)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.encontrado").value(false))
+                .andExpect(jsonPath("$.codigoConsultado").value("000123"));
     }
 }

@@ -59,6 +59,10 @@ export async function findProductByCode(code) {
   }
 }
 
+export function lookupProductByCode(code) {
+  return request(`/api/produtos/lookup/${encodeURIComponent(String(code).trim())}`);
+}
+
 export function searchProducts(term, options = {}) {
   return listProducts({ ...options, search: term });
 }

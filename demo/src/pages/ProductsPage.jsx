@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import BarcodeInput from "../components/BarcodeInput.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { formatCurrency, normalizeText } from "../utils/formatters.js";
@@ -13,7 +15,7 @@ import {
   BACKEND_API_ENABLED,
   createProduct,
   deactivateProduct,
-  findProductByCode,
+  lookupProductByCode,
   reactivateProduct,
   searchProducts,
   updateProduct
@@ -44,6 +46,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   const [apiLoading, setApiLoading] = useState(BACKEND_API_ENABLED);
   const [apiMessage, setApiMessage] = useState("");
   const barcodeInputRef = useRef(null);
+  const [searchParams] = useSearchParams();
   const sourceProducts = BACKEND_API_ENABLED ? apiProducts : db.products;
   const products = useMemo(() => sourceProducts.filter((product) => {
     const query = normalizeText(search.trim());
@@ -82,6 +85,15 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     };
   }, [search]);
 
+  useEffect(() => {
+    const requestedCode = normalizeBarcode(searchParams.get("codigo"));
+    if (requestedCode) {
+      setBarcodeQuery(requestedCode);
+      setForm({ ...initialForm, codigoBarras: requestedCode });
+      scrollToForm();
+    }
+  }, [searchParams]);
+
   async function reloadApiProducts() {
     const result = await searchProducts(search, { includeInactive: true });
     setApiProducts(result);
@@ -109,20 +121,15 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     scrollToForm();
   }
 
-  async function submitBarcodeLookup(event) {
-    event.preventDefault();
-    const barcode = normalizeBarcode(barcodeQuery);
-    if (!barcode) {
-      setLookupResult({ status: PRODUCT_LOOKUP_STATUS.ERROR, message: "Informe um código para realizar a consulta.", barcode: "" });
-      focusBarcodeInput();
-      return;
-    }
+  async function performBarcodeLookup(value) {
+    const barcode = normalizeBarcode(value);
+    if (!barcode || lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING) return;
 
     setBarcodeQuery(barcode);
     setLookupResult({ status: PRODUCT_LOOKUP_STATUS.LOADING, barcode });
     const result = await lookupProductByBarcode(barcode, {
       products: sourceProducts,
-      findProduct: BACKEND_API_ENABLED ? findProductByCode : undefined
+      findLookup: BACKEND_API_ENABLED ? lookupProductByCode : undefined
     });
     setLookupResult(result);
 
@@ -130,6 +137,11 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
       setForm({ ...initialForm, codigoBarras: result.barcode });
     }
     focusBarcodeInput();
+  }
+
+  function submitBarcodeLookup(event) {
+    event.preventDefault();
+    performBarcodeLookup(barcodeQuery);
   }
 
   function useExternalData() {
@@ -223,10 +235,12 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         action={<button type="button" className="secondary-button" onClick={() => prepareManualForm()}>+ Cadastrar manualmente</button>}
       >
         <form className="barcode-lookup-form" onSubmit={submitBarcodeLookup}>
-          <input
+          <BarcodeInput
             ref={barcodeInputRef}
             value={barcodeQuery}
             onChange={(event) => setBarcodeQuery(event.target.value)}
+            onSubmit={performBarcodeLookup}
+            disabled={lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING}
             placeholder="Passe ou digite o código de barras"
             autoComplete="off"
             autoFocus
@@ -246,7 +260,9 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         {lookupResult.status === PRODUCT_LOOKUP_STATUS.FOUND_LOCAL && (
           <div className="lookup-result lookup-local">
             <div>
-              <span className="status-pill status-aprovado">Produto já cadastrado</span>
+              <span className={`status-pill ${lookupResult.product.ativo ? "status-aprovado" : "status-cancelado"}`}>
+                {lookupResult.product.ativo ? "Produto já cadastrado" : "Produto inativo"}
+              </span>
               <h4>{lookupResult.product.nome}</h4>
               <p>{lookupResult.product.marca || "Sem marca"} · {lookupResult.product.codigoReferencia || "Sem referência"}</p>
             </div>
@@ -273,8 +289,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
 
         {lookupResult.status === PRODUCT_LOOKUP_STATUS.NOT_FOUND && (
           <div className="lookup-result lookup-warning">
-            <div><strong>Produto ainda não cadastrado.</strong><p>Não encontramos informações para este código. Você pode cadastrar a peça manualmente.</p></div>
-            <button type="button" className="secondary-button" onClick={() => prepareManualForm(lookupResult.barcode)}>Continuar cadastro manual</button>
+            <div><strong>Produto não encontrado no cadastro.</strong><p>Nenhuma fonte configurada retornou informações para este código.</p></div>
+            <button type="button" className="secondary-button" onClick={() => prepareManualForm(lookupResult.barcode)}>Cadastrar com este código</button>
           </div>
         )}
 

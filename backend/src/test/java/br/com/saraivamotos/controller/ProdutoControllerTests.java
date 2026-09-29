@@ -8,6 +8,7 @@ import br.com.saraivamotos.exception.CodigoBarrasDuplicadoException;
 import br.com.saraivamotos.exception.GlobalExceptionHandler;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.service.ProdutoService;
+import br.com.saraivamotos.service.ProductLookupService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,13 +31,15 @@ class ProdutoControllerTests {
 
     @Mock
     private ProdutoService service;
+    @Mock
+    private ProductLookupService lookupService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new ProdutoController(service))
+                .standaloneSetup(new ProdutoController(service, lookupService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

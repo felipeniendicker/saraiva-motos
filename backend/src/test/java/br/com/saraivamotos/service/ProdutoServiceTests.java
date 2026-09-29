@@ -9,6 +9,7 @@ import br.com.saraivamotos.domain.Produto;
 import br.com.saraivamotos.dto.ProdutoRequest;
 import br.com.saraivamotos.dto.ProdutoResponse;
 import br.com.saraivamotos.exception.CodigoBarrasDuplicadoException;
+import br.com.saraivamotos.exception.CodigoProdutoAmbiguoException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.repository.ProdutoRepository;
 
@@ -208,17 +209,26 @@ class ProdutoServiceTests {
     @Test
     void consultaPorCodigoReferenciaComoFallback() {
         when(repository.findFirstByCodigoBarrasAndAtivoTrue("REF-01")).thenReturn(Optional.empty());
-        when(repository.findFirstByCodigoReferenciaAndAtivoTrueOrderByIdAsc("REF-01"))
-                .thenReturn(Optional.of(produto(2L, true)));
+        when(repository.findByCodigoReferenciaAndAtivoTrueOrderByIdAsc("REF-01"))
+                .thenReturn(List.of(produto(2L, true)));
 
         assertEquals(2L, service.buscarPorCodigo("REF-01").id());
     }
 
     @Test
+    void referenciaAmbiguaNaoRetornaProdutoArbitrario() {
+        when(repository.findFirstByCodigoBarrasAndAtivoTrue("REF-DUP")).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaAndAtivoTrueOrderByIdAsc("REF-DUP"))
+                .thenReturn(List.of(produto(1L, true), produto(2L, true)));
+
+        assertThrows(CodigoProdutoAmbiguoException.class, () -> service.buscarPorCodigo("REF-DUP"));
+    }
+
+    @Test
     void consultaPorCodigoInexistenteRejeitada() {
         when(repository.findFirstByCodigoBarrasAndAtivoTrue("SEM-CODIGO")).thenReturn(Optional.empty());
-        when(repository.findFirstByCodigoReferenciaAndAtivoTrueOrderByIdAsc("SEM-CODIGO"))
-                .thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaAndAtivoTrueOrderByIdAsc("SEM-CODIGO"))
+                .thenReturn(List.of());
 
         assertThrows(ProdutoNaoEncontradoException.class,
                 () -> service.buscarPorCodigo("SEM-CODIGO"));

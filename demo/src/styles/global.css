@@ -899,8 +899,12 @@ textarea:focus {
 }
 
 .pdv-notice {
+  align-items: center;
   border-radius: 18px;
+  display: flex;
   font-weight: 700;
+  gap: 1rem;
+  justify-content: space-between;
   padding: 0.9rem 1rem;
 }
 

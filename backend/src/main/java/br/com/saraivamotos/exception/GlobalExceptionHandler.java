@@ -52,6 +52,13 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(CodigoProdutoAmbiguoException.class)
+    public ResponseEntity<ApiError> handleAmbiguousProductCode(
+            CodigoProdutoAmbiguoException exception,
+            HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
     @ExceptionHandler(OperacaoEstoqueInvalidaException.class)
     public ResponseEntity<ApiError> handleInvalidStockOperation(
             OperacaoEstoqueInvalidaException exception,

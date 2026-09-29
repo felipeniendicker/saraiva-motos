@@ -32,8 +32,7 @@ const mockProducts = {
 export function normalizeBarcode(value) {
   return String(value ?? "")
     .trim()
-    .replace(/\s+/g, "")
-    .replace(/[^A-Za-z0-9._-]/g, "");
+    .replace(/\s+/g, "");
 }
 
 export function isValidGtin(value) {
@@ -107,12 +106,32 @@ function normalizeProviderResult(result, barcode) {
 
 export async function lookupProductByBarcode(
   barcode,
-  { products = [], findProduct, provider = lookupProviderMock } = {}
+  { products = [], findProduct, findLookup, provider = null } = {}
 ) {
   const normalized = normalizeBarcode(barcode);
   let localProduct;
 
   try {
+    if (findLookup) {
+      const response = await findLookup(normalized);
+      if (response?.cadastradoLocalmente && response.produto) {
+        return {
+          status: PRODUCT_LOOKUP_STATUS.FOUND_LOCAL,
+          found: true,
+          barcode: normalized,
+          product: response.produto,
+          source: response.origem || "LOCAL"
+        };
+      }
+      if (response?.encontrado && response.sugestao) {
+        return normalizeProviderResult({
+          found: true,
+          source: response.origem,
+          ...response.sugestao
+        }, normalized);
+      }
+      return { status: PRODUCT_LOOKUP_STATUS.NOT_FOUND, found: false, barcode: normalized, source: response?.origem || null };
+    }
     localProduct = findProduct
       ? await findProduct(normalized)
       : products.find(
@@ -136,6 +155,10 @@ export async function lookupProductByBarcode(
       product: localProduct,
       source: findProduct ? "SARAIVA_API" : "LOCAL"
     };
+  }
+
+  if (!provider) {
+    return { status: PRODUCT_LOOKUP_STATUS.NOT_FOUND, found: false, barcode: normalized, source: null };
   }
 
   try {
