@@ -82,6 +82,7 @@ class VendaServiceTests {
         assertEquals(new BigDecimal("60.00"), response.subtotal());
         assertEquals(new BigDecimal("5.00"), response.desconto());
         assertEquals(new BigDecimal("55.00"), response.total());
+        assertEquals(FormaPagamento.PIX, response.formaPagamento());
         assertEquals("balcão", response.observacoes());
         assertEquals(5, produto.getQuantidadeEstoque());
         assertEquals("REF-01", response.itens().get(0).codigoProduto());
@@ -153,6 +154,61 @@ class VendaServiceTests {
         assertEquals(TipoMovimentacaoEstoque.SAIDA_VENDA, movimento.getTipo());
         assertEquals(7, movimento.getEstoqueAnterior());
         assertEquals(5, movimento.getEstoquePosterior());
+    }
+
+    @Test
+    void criarComDoisProdutosBaixaEstoquesERegistraUmaSaidaPorItem() {
+        Produto primeiro = produto(7, true);
+        Produto segundo = produto(4, true);
+        segundo.setId(2L);
+        segundo.setNome("Óleo 10W40");
+        segundo.setCodigoReferencia("OL-10");
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L, 2L))).thenReturn(List.of(primeiro, segundo));
+        ArgumentCaptor<List<MovimentacaoEstoque>> captor = ArgumentCaptor.forClass(List.class);
+
+        VendaResponse response = service.criar(new VendaRequest(null, List.of(
+                new ItemVendaRequest(1L, 2, new BigDecimal("30.00")),
+                new ItemVendaRequest(2L, 1, new BigDecimal("40.00"))),
+                BigDecimal.ZERO, FormaPagamento.CARTAO_DEBITO, null));
+
+        assertEquals(2, response.itens().size());
+        assertEquals(new BigDecimal("100.00"), response.total());
+        assertEquals(5, primeiro.getQuantidadeEstoque());
+        assertEquals(3, segundo.getQuantidadeEstoque());
+        verify(movimentacaoRepository).saveAll(captor.capture());
+        assertEquals(2, captor.getValue().size());
+    }
+
+    @Test
+    void produtoInativoImpedeVendaSemPersistirAlteracoes() {
+        Produto produto = produto(7, false);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+
+        assertThrows(OperacaoVendaInvalidaException.class, () -> service.criar(new VendaRequest(null,
+                List.of(new ItemVendaRequest(1L, 1, BigDecimal.TEN)), BigDecimal.ZERO,
+                FormaPagamento.DINHEIRO, null)));
+
+        assertEquals(7, produto.getQuantidadeEstoque());
+        verify(vendaRepository, never()).saveAndFlush(any());
+        verify(movimentacaoRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void estoqueInsuficienteEmUmDosItensImpedePersistenciaDaVenda() {
+        Produto primeiro = produto(7, true);
+        Produto segundo = produto(1, true);
+        segundo.setId(2L);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L, 2L))).thenReturn(List.of(primeiro, segundo));
+
+        assertThrows(OperacaoVendaInvalidaException.class, () -> service.criar(new VendaRequest(null, List.of(
+                new ItemVendaRequest(1L, 2, BigDecimal.TEN),
+                new ItemVendaRequest(2L, 2, BigDecimal.TEN)), BigDecimal.ZERO,
+                FormaPagamento.PIX, null)));
+
+        assertEquals(7, primeiro.getQuantidadeEstoque());
+        assertEquals(1, segundo.getQuantidadeEstoque());
+        verify(vendaRepository, never()).saveAndFlush(any());
+        verify(movimentacaoRepository, never()).saveAll(any());
     }
 
     @Test

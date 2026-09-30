@@ -14,11 +14,14 @@ import {
 } from "../data/domain.js";
 import {
   addProductToCart,
+  buildSaleConfirmation,
   calculateSaleTotals,
   changeCartItemPrice,
   changeCartItemQuantity,
   findProductByCode,
   repriceCart,
+  runSingleSubmission,
+  searchActiveCustomers,
   searchActiveProducts
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
@@ -31,6 +34,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [code, setCode] = useState("");
   const [search, setSearch] = useState("");
   const [customerId, setCustomerId] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -39,7 +43,10 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [lastSale, setLastSale] = useState(null);
   const [receiptSale, setReceiptSale] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const codeInputRef = useRef(null);
+  const finalizeLockRef = useRef(false);
   const navigate = useNavigate();
 
   const selectedCustomer = db.customers.find((customer) => String(customer.id) === String(customerId)) || null;
@@ -49,6 +56,21 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     () => searchActiveProducts(db.products, search).slice(0, 8),
     [db.products, search]
   );
+  const customerResults = useMemo(
+    () => {
+      const matches = searchActiveCustomers(db.customers, customerSearch).slice(0, 12);
+      return selectedCustomer && !matches.some((customer) => customer.id === selectedCustomer.id)
+        ? [selectedCustomer, ...matches]
+        : matches;
+    },
+    [db.customers, customerSearch, selectedCustomer]
+  );
+  const confirmation = buildSaleConfirmation({
+    customer: selectedCustomer,
+    items,
+    total: totals.total,
+    paymentMethod
+  });
 
   useEffect(() => {
     codeInputRef.current?.focus();
@@ -113,6 +135,16 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     setNotice(null);
   }
 
+  function requestSaleConfirmation() {
+    if (items.length === 0) return showError("Adicione pelo menos um produto ao carrinho.");
+    if (!paymentMethod) return showError("Selecione uma forma de pagamento.");
+    if (!Number.isFinite(Number(discount)) || Number(discount) < 0 || Number(discount) > totals.subtotal) {
+      return showError("Revise o desconto informado.");
+    }
+    setNotice(null);
+    setConfirmationOpen(true);
+  }
+
   function updateQuantity(item, quantity) {
     const product = db.products.find((candidate) => candidate.id === item.produtoId);
     if (!product) return;
@@ -141,14 +173,24 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   }
 
   async function finalizeSale() {
-    const result = await onFinalizeSale({
-      clienteId: customerId || null,
-      tipoPrecoUtilizado: priceType,
-      itens: items,
-      desconto: Number(discount),
-      formaPagamento: paymentMethod,
-      observacoes: notes
-    });
+    if (finalizeLockRef.current) return;
+    setIsFinalizing(true);
+    let result;
+    try {
+      result = await runSingleSubmission(finalizeLockRef, () => onFinalizeSale({
+        clienteId: customerId || null,
+        tipoPrecoUtilizado: priceType,
+        itens: items,
+        desconto: Number(discount),
+        formaPagamento: paymentMethod,
+        observacoes: notes
+      }));
+    } catch (error) {
+      result = { ok: false, message: error.message || "Não foi possível finalizar a venda." };
+    } finally {
+      setIsFinalizing(false);
+    }
+    if (result.skipped) return;
 
     if (!result.ok) {
       showError(result.message);
@@ -158,10 +200,12 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     setLastSale(result.sale);
     setItems([]);
     setCustomerId("");
+    setCustomerSearch("");
     setDiscount("0");
     setPaymentMethod("");
     setNotes("");
     setSearch("");
+    setConfirmationOpen(false);
     setNotice({ type: "success", message: `Venda ${result.sale.numeroVenda} concluída com sucesso.` });
     focusCodeInput();
   }
@@ -198,18 +242,27 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
             </div>
           </form>
 
-          <label className="pdv-customer-field">
-            Cliente
-            <select value={customerId} onChange={(event) => changeCustomer(event.target.value)}>
+          <div className="pdv-customer-field">
+            <label htmlFor="customer-search">Cliente</label>
+            <input
+              id="customer-search"
+              value={customerSearch}
+              onChange={(event) => setCustomerSearch(event.target.value)}
+              placeholder="Nome, CPF/CNPJ ou telefone"
+            />
+            <select aria-label="Selecionar cliente" value={customerId} onChange={(event) => changeCustomer(event.target.value)}>
               <option value="">Consumidor não identificado</option>
-              {db.customers.filter((customer) => customer.ativo).map((customer) => (
+              {customerResults.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.nomeRazaoSocial} · {CUSTOMER_TYPE_LABELS[customer.tipoCliente]}
                 </option>
               ))}
             </select>
-            <small>{selectedCustomer ? `Preço padrão: ${priceType}` : "Venda balcão · preço de varejo"}</small>
-          </label>
+            <div className="customer-selection-footer">
+              <small>{selectedCustomer ? `Preço padrão: ${priceType}` : "Consumidor não identificado · preço de varejo"}</small>
+              {selectedCustomer && <button type="button" className="link-button" onClick={() => changeCustomer("")}>Remover cliente</button>}
+            </div>
+          </div>
         </div>
 
         <div className="manual-search-box">
@@ -218,7 +271,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
             id="product-search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Nome, referência, código de barras, marca ou aplicação"
+            placeholder="Nome, referência, código de barras, marca, categoria ou aplicação"
           />
           {search && (
             <div className="product-search-results">
@@ -298,7 +351,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
           )}
         </Panel>
 
-        <Panel title="Resumo da venda" description={selectedCustomer?.nomeRazaoSocial || "Venda balcão"}>
+        <Panel title="Resumo da venda" description={selectedCustomer?.nomeRazaoSocial || "Consumidor não identificado"}>
           <div className="sale-summary">
             <div className="summary-line"><span>Subtotal</span><strong>{formatCurrency(totals.subtotal)}</strong></div>
             <label>
@@ -317,7 +370,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
               Observações
               <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
             </label>
-            <button type="button" className="primary-button finalize-sale-button" onClick={finalizeSale}>Finalizar venda</button>
+            <button type="button" className="primary-button finalize-sale-button" onClick={requestSaleConfirmation} disabled={isFinalizing}>{isFinalizing ? "Processando..." : "Finalizar venda"}</button>
             {lastSale && (
               <div className="last-sale-success">
                 <div><span>Venda concluída com sucesso</span><strong>{lastSale.numeroVenda}</strong></div>
@@ -330,6 +383,25 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
           </div>
         </Panel>
       </div>
+
+      {confirmationOpen && (
+        <div className="sale-confirmation-overlay" role="dialog" aria-modal="true" aria-labelledby="sale-confirmation-title">
+          <div className="sale-confirmation-card">
+            <h3 id="sale-confirmation-title">Confirmar venda</h3>
+            <p>Confira os dados antes de registrar a venda.</p>
+            <dl>
+              <div><dt>Cliente</dt><dd>{confirmation.customerName}</dd></div>
+              <div><dt>Itens</dt><dd>{confirmation.itemQuantity} unidade(s)</dd></div>
+              <div><dt>Total</dt><dd>{formatCurrency(confirmation.total)}</dd></div>
+              <div><dt>Pagamento</dt><dd>{PAYMENT_METHOD_LABELS[confirmation.paymentMethod]}</dd></div>
+            </dl>
+            <div className="form-actions-pro">
+              <button type="button" className="secondary-button" onClick={() => setConfirmationOpen(false)} disabled={isFinalizing}>Voltar</button>
+              <button type="button" className="primary-button" onClick={finalizeSale} disabled={isFinalizing}>{isFinalizing ? "Processando..." : "Confirmar e finalizar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {receiptSale && <SaleReceiptPreview sale={receiptSale} customers={db.customers} onClose={() => setReceiptSale(null)} />}
     </div>

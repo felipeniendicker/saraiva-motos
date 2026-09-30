@@ -827,6 +827,13 @@ textarea:focus {
   font-size: 0.8rem;
 }
 
+.customer-selection-footer {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
 .price-type-badge {
   border-radius: 999px;
   font-size: 0.8rem;
@@ -1028,6 +1035,55 @@ textarea:focus {
   justify-content: space-between;
 }
 
+.sale-confirmation-overlay {
+  align-items: center;
+  background: rgba(10, 20, 35, 0.55);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 1000;
+}
+
+.sale-confirmation-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(10, 20, 35, 0.24);
+  max-width: 460px;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+.sale-confirmation-card h3,
+.sale-confirmation-card p {
+  margin-top: 0;
+}
+
+.sale-confirmation-card dl {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  margin: 1rem 0;
+  padding: 0.5rem 0;
+}
+
+.sale-confirmation-card dl > div {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.45rem 0;
+}
+
+.sale-confirmation-card dt {
+  color: var(--muted);
+}
+
+.sale-confirmation-card dd {
+  font-weight: 700;
+  margin: 0;
+  text-align: right;
+}
+
 .receipt-preview-overlay {
   align-items: flex-start;
   background: rgba(12, 20, 29, 0.78);
@@ -1129,6 +1185,8 @@ textarea:focus {
 
 .receipt-item {
   border-bottom: 1px dotted #777;
+  break-inside: avoid;
+  page-break-inside: avoid;
   padding: 0.55rem 0;
 }
 

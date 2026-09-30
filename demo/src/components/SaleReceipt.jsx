@@ -31,7 +31,7 @@ export default function SaleReceipt({ sale, customers = [] }) {
       </section>
 
       <section className="receipt-section">
-        <p><span>Cliente:</span> {receipt.clienteNome || "Venda balcão"}</p>
+        <p><span>Cliente:</span> {receipt.clienteNome || "Consumidor não identificado"}</p>
         <p><span>Tipo:</span> {receipt.clienteTipo ? CUSTOMER_TYPE_LABELS[receipt.clienteTipo] || receipt.clienteTipo : receipt.tipoPrecoUtilizado}</p>
       </section>
 

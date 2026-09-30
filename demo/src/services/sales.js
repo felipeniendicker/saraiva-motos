@@ -70,8 +70,45 @@ export function searchActiveProducts(products, search) {
     product.codigoReferencia,
     product.codigoBarras,
     product.marca,
+    product.categoria,
     product.aplicacao
   ].some((value) => normalizeText(String(value || "")).includes(query)));
+}
+
+export function searchActiveCustomers(customers, search) {
+  const query = normalizeText(String(search || "").trim());
+  const compactQuery = query.replace(/[^a-z0-9]/g, "");
+  const activeCustomers = customers.filter((customer) => customer.ativo);
+  if (!query) return activeCustomers;
+
+  return activeCustomers.filter((customer) => [
+    customer.nomeRazaoSocial,
+    customer.cpfCnpj,
+    customer.telefone
+  ].some((value) => {
+    const normalizedValue = normalizeText(String(value || ""));
+    return normalizedValue.includes(query)
+      || (compactQuery && normalizedValue.replace(/[^a-z0-9]/g, "").includes(compactQuery));
+  }));
+}
+
+export function buildSaleConfirmation({ customer, items, total, paymentMethod }) {
+  return {
+    customerName: customer?.nomeRazaoSocial || "Consumidor não identificado",
+    itemQuantity: items.reduce((sum, item) => sum + Number(item.quantidade || 0), 0),
+    total,
+    paymentMethod
+  };
+}
+
+export async function runSingleSubmission(lock, submit) {
+  if (lock.current) return { skipped: true };
+  lock.current = true;
+  try {
+    return await submit();
+  } finally {
+    lock.current = false;
+  }
 }
 
 export function addProductToCart(items, product, priceType, idFactory = createId) {

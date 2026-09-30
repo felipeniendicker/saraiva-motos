@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { getDefaultPriceType } from "../data/domain.js";
 import {
   addProductToCart,
+  buildSaleConfirmation,
   cancelSale,
   changeCartItemPrice,
   completeSale,
@@ -12,7 +13,10 @@ import {
   getSaleReceiptData,
   getSaleCustomerLabel,
   getTopSellingProducts,
-  repriceCart
+  repriceCart,
+  runSingleSubmission,
+  searchActiveCustomers,
+  searchActiveProducts
 } from "./sales.js";
 
 function product(overrides = {}) {
@@ -424,4 +428,54 @@ test("45. venda antiga sem snapshot utiliza fallback compatível do cliente", ()
   const receipt = getSaleReceiptData(oldSale, [{ id: "c1", nomeRazaoSocial: "Cliente legado", tipoCliente: "CLIENTE_COMUM" }]);
   assert.equal(receipt.clienteNome, "Cliente legado");
   assert.equal(receipt.clienteTipo, "CLIENTE_COMUM");
+});
+
+test("46. busca manual encontra produto ativo por categoria", () => {
+  const products = [
+    product({ categoria: "Freios" }),
+    product({ id: "p2", categoria: "Freios", ativo: false })
+  ];
+  assert.deepEqual(searchActiveProducts(products, "freios").map((item) => item.id), ["p1"]);
+});
+
+test("47. busca rápida encontra somente clientes ativos por nome, documento ou telefone", () => {
+  const customers = [
+    { id: "c1", nomeRazaoSocial: "Oficina Central", cpfCnpj: "12.345.678/0001-00", telefone: "(11) 99999-0000", ativo: true },
+    { id: "c2", nomeRazaoSocial: "Cliente Inativo", cpfCnpj: "999", telefone: "111", ativo: false }
+  ];
+  assert.equal(searchActiveCustomers(customers, "oficina")[0].id, "c1");
+  assert.equal(searchActiveCustomers(customers, "12345678")[0].id, "c1");
+  assert.equal(searchActiveCustomers(customers, "99999")[0].id, "c1");
+  assert.equal(searchActiveCustomers(customers, "inativo").length, 0);
+});
+
+test("48. confirmação resume cliente opcional, unidades, total e pagamento", () => {
+  const confirmation = buildSaleConfirmation({
+    customer: null,
+    items: [{ quantidade: 2 }, { quantidade: 3 }],
+    total: 149.9,
+    paymentMethod: "PIX"
+  });
+  assert.deepEqual(confirmation, {
+    customerName: "Consumidor não identificado",
+    itemQuantity: 5,
+    total: 149.9,
+    paymentMethod: "PIX"
+  });
+});
+
+test("49. bloqueio de submissão impede duas finalizações simultâneas", async () => {
+  const lock = { current: false };
+  let release;
+  let calls = 0;
+  const pending = runSingleSubmission(lock, () => {
+    calls += 1;
+    return new Promise((resolve) => { release = resolve; });
+  });
+  const duplicate = await runSingleSubmission(lock, () => { calls += 1; });
+  assert.deepEqual(duplicate, { skipped: true });
+  assert.equal(calls, 1);
+  release({ ok: true });
+  assert.deepEqual(await pending, { ok: true });
+  assert.equal(lock.current, false);
 });
