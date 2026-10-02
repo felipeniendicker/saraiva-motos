@@ -27,17 +27,18 @@ $env:JWT_SECRET = "defina-um-segredo-local-com-pelo-menos-32-bytes"
 
 O frontend recebe:
 
-- `VITE_BACKEND_API_ENABLED=true` para utilizar exclusivamente API/MySQL;
+- `VITE_BACKEND_API_ENABLED` é habilitado por padrão; use `false` somente para executar deliberadamente o modo legado isolado;
 - `VITE_API_URL`, cujo padrão local é `http://localhost:8080`.
 
 ```powershell
 cd demo
-$env:VITE_BACKEND_API_ENABLED = "true"
 $env:VITE_API_URL = "http://localhost:8080"
 npm run dev
 ```
 
 No modo backend não há leitura, escrita, sincronização ou fallback do banco operacional em `localStorage`, e nenhum dado seed é inicializado. A única persistência local é o JWT, na chave exclusiva `saraiva-motos-auth-token`; senhas nunca são armazenadas. Falhas da API são exibidas como erro.
+
+Em produção, defina `VITE_API_URL` durante o build do frontend e `CORS_ALLOWED_ORIGINS` no backend com a origem HTTPS exata da interface. Não use `*`. O backend deve receber `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e um `JWT_SECRET` exclusivo por variáveis do ambiente de implantação.
 
 ## Autenticação
 

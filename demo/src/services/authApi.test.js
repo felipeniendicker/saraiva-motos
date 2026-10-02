@@ -76,3 +76,12 @@ test("API protegida envia Bearer sem acessar armazenamento operacional", async (
   assert.equal(global.localStorage.getItem("saraiva-motos-database"), null);
   delete global.localStorage;
 });
+
+test("falha de rede retorna erro operacional sem expor detalhe interno do navegador", async () => {
+  installStorage();
+  global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await assert.rejects(
+    getCurrentUser(),
+    (error) => error.status === 0 && /validar (?:sua |a )sessão/i.test(error.message) && !/failed to fetch/i.test(error.message)
+  );
+});

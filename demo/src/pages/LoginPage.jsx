@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage({ onLogin, sessionMessage = "" }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +40,7 @@ export default function LoginPage({ onLogin }) {
             <span>Senha</span>
             <input type="password" value={senha} onChange={(event) => setSenha(event.target.value)} autoComplete="current-password" required />
           </label>
-          {error ? <p className="login-error" role="alert">{error}</p> : null}
+          {error || sessionMessage ? <p className="login-error" role="alert">{error || sessionMessage}</p> : null}
           <button className="primary-button" type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}
           </button>

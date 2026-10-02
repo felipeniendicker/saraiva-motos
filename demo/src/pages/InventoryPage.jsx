@@ -78,6 +78,8 @@ export default function InventoryPage({ db, onMovement }) {
     if (form.operacao === "AJUSTE" && value === selected.quantidadeEstoque) return setMessage("O novo saldo deve ser diferente do estoque atual.");
     if (["AJUSTE", "SAIDA"].includes(form.operacao) && !form.motivo.trim()) return setMessage("Informe o motivo da movimentação.");
     if (form.operacao === "SAIDA" && value > selected.quantidadeEstoque) return setMessage(`Estoque insuficiente. Disponível: ${selected.quantidadeEstoque} unidade(s).`);
+    if (form.operacao === "AJUSTE" && !window.confirm(`Confirmar ajuste de ${selected.quantidadeEstoque} para ${value} unidade(s)?`)) return;
+    if (form.operacao === "SAIDA" && !window.confirm(`Confirmar saída manual de ${value} unidade(s) de ${selected.nome}?`)) return;
 
     if (BACKEND_API_ENABLED) {
       setLoading(true);

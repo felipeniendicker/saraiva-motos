@@ -44,6 +44,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
   const [lookupResult, setLookupResult] = useState({ status: PRODUCT_LOOKUP_STATUS.IDLE });
   const [apiProducts, setApiProducts] = useState([]);
   const [apiLoading, setApiLoading] = useState(BACKEND_API_ENABLED);
+  const [apiSaving, setApiSaving] = useState(false);
   const [apiMessage, setApiMessage] = useState("");
   const barcodeInputRef = useRef(null);
   const [searchParams] = useSearchParams();
@@ -164,6 +165,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     };
 
     if (BACKEND_API_ENABLED) {
+      if (apiSaving) return;
+      setApiSaving(true);
       try {
         if (form.id) {
           await updateProduct(form.id, productData);
@@ -175,6 +178,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
         setForm(initialForm);
       } catch (error) {
         setApiMessage(error.message || "Não foi possível salvar o produto.");
+      } finally {
+        setApiSaving(false);
       }
       return;
     }
@@ -195,6 +200,7 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
     const action = product.ativo ? "desativar" : "reativar";
     if (!window.confirm(`Deseja ${action} o produto ${product.nome}?`)) return;
 
+    setApiSaving(true);
     try {
       if (product.ativo) {
         await deactivateProduct(product.id);
@@ -205,6 +211,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
       setApiMessage(product.ativo ? "Produto desativado." : "Produto reativado.");
     } catch (error) {
       setApiMessage(error.message || "Não foi possível alterar o produto.");
+    } finally {
+      setApiSaving(false);
     }
   }
 
@@ -358,8 +366,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
             <textarea value={form.observacoes} onChange={(event) => update("observacoes", event.target.value)} rows={3} />
           </label>
           <div className="form-actions-pro field-wide">
-            {form.id && <button type="button" className="secondary-button" onClick={() => setForm(initialForm)}>Cancelar edição</button>}
-            <button className="primary-button">{form.id ? "Salvar alterações" : "Cadastrar produto"}</button>
+            {form.id && <button type="button" className="secondary-button" disabled={apiSaving} onClick={() => setForm(initialForm)}>Cancelar edição</button>}
+            <button className="primary-button" disabled={apiSaving}>{apiSaving ? "Salvando..." : form.id ? "Salvar alterações" : "Cadastrar produto"}</button>
           </div>
         </form>
         </Panel>
@@ -402,8 +410,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
                     <div><span>Cadastro</span><strong>{product.dataCadastro ? new Date(product.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
                   </div>
                   <div className="card-actions">
-                    <button className="secondary-button" onClick={() => edit(product)}>Editar</button>
-                    <button className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => toggleActive(product)}>
+                    <button className="secondary-button" disabled={apiSaving} onClick={() => edit(product)}>Editar</button>
+                    <button disabled={apiSaving} className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => toggleActive(product)}>
                       {product.ativo ? "Desativar" : "Reativar"}
                     </button>
                   </div>

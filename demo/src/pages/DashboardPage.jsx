@@ -6,7 +6,7 @@ import { IconCustomers, IconOrder, IconRevenue, IconSpark } from "../components/
 import { getCompletedSalesMetrics } from "../services/sales.js";
 import { BACKEND_API_ENABLED } from "../services/productsApi.js";
 import { getDashboard } from "../services/dashboardApi.js";
-import { formatCurrency } from "../utils/formatters.js";
+import { formatCurrency, formatDateTime } from "../utils/formatters.js";
 
 function DashboardView({ data }) {
   const movements=data.movimentacoesRecentes||[], low=data.itensEstoqueBaixo||[];
@@ -16,7 +16,7 @@ function DashboardView({ data }) {
     <StatCard icon={<IconCustomers/>} label="Clientes ativos" value={data.totalClientesAtivos} hint="Cadastros disponíveis para atendimento" tone="orange"/>
     <StatCard icon={<IconOrder/>} label="Vendas concluídas" value={data.vendasConcluidas} hint={`${formatCurrency(data.faturamento)} em vendas válidas`} tone="green"/>
   </div><div className="dashboard-layout">
-    <Panel title="Últimas movimentações de estoque" description="As seis entradas e saídas mais recentes da loja.">{movements.length===0?<EmptyState title="Nenhuma movimentação" description="As movimentações aparecerão após a primeira operação de estoque."/>:<div className="timeline-list">{movements.map(m=>{const entry=["ENTRADA","AJUSTE_ENTRADA","CANCELAMENTO_VENDA"].includes(m.tipo);return <article key={m.id} className="timeline-item"><span className={`movement-badge movement-${entry?"in":"out"}`}>{entry?"Entrada":"Saída"}</span><div><strong>{m.produtoNome||"Produto não encontrado"}</strong><p>{m.motivo} · {m.dataHora?.slice(0,10)}</p></div><strong>{m.quantidade} un.</strong></article>;})}</div>}</Panel>
+    <Panel title="Últimas movimentações de estoque" description="As seis entradas e saídas mais recentes da loja.">{movements.length===0?<EmptyState title="Nenhuma movimentação" description="As movimentações aparecerão após a primeira operação de estoque."/>:<div className="timeline-list">{movements.map(m=>{const entry=["ENTRADA","AJUSTE_ENTRADA","CANCELAMENTO_VENDA"].includes(m.tipo);return <article key={m.id} className="timeline-item"><span className={`movement-badge movement-${entry?"in":"out"}`}>{entry?"Entrada":"Saída"}</span><div><strong>{m.produtoNome||"Produto não encontrado"}</strong><p>{m.motivo} · {formatDateTime(m.dataHora)}</p></div><strong>{m.quantidade} un.</strong></article>;})}</div>}</Panel>
     <Panel title="Atenção ao estoque" description="Itens ativos na quantidade mínima ou abaixo dela.">{low.length===0?<EmptyState title="Estoque em dia" description="Nenhum produto ativo está abaixo do estoque mínimo."/>:<div className="timeline-list">{low.map(p=><article key={p.id} className="timeline-item"><span className="status-pill status-recusado">Baixo</span><div><strong>{p.nome}</strong><p>{p.codigoReferencia||"Sem referência"} · mínimo recomendado: {p.estoqueMinimo}</p></div><strong>{p.quantidadeEstoque} un.</strong></article>)}</div>}<div className="insight-banner"><strong>Controle de reposição</strong><p>Revise os itens sinalizados antes de realizar novos pedidos de compra.</p></div></Panel>
   </div></div>;
 }

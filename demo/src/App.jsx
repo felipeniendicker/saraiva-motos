@@ -103,21 +103,33 @@ export default function App() {
     if (!BACKEND_API_ENABLED) return undefined;
 
     function handleUnauthorized() {
-      setAuth({ status: "unauthenticated", user: null });
+      setAuth({ status: "unauthenticated", user: null, message: "Sua sessão expirou. Entre novamente para continuar." });
       navigate("/login", { replace: true });
     }
 
     globalThis.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
     const token = getAuthToken();
     if (!token) {
-      handleUnauthorized();
+      setAuth({ status: "unauthenticated", user: null, message: "" });
+      navigate("/login", { replace: true });
     } else {
       getCurrentUser()
         .then((user) => {
           setAuth({ status: "authenticated", user });
           if (location.pathname === "/login") navigate("/dashboard", { replace: true });
         })
-        .catch(handleUnauthorized);
+        .catch((error) => {
+          if (error?.status === 401) {
+            handleUnauthorized();
+            return;
+          }
+          setAuth({
+            status: "unauthenticated",
+            user: null,
+            message: error?.message || "Não foi possível validar sua sessão. Verifique a conexão com o servidor."
+          });
+          navigate("/login", { replace: true });
+        });
     }
 
     return () => globalThis.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
@@ -292,7 +304,7 @@ export default function App() {
   }
 
   if (BACKEND_API_ENABLED && auth.status !== "authenticated") {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} sessionMessage={auth.message} />;
   }
 
   const meta = pageMeta[location.pathname] || pageMeta["/dashboard"];

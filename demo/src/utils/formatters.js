@@ -1,8 +1,16 @@
 export function formatCurrency(value) {
+  const numericValue = Number(value);
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL"
-  }).format(Number(value || 0));
+  }).format(Number.isFinite(numericValue) ? numericValue : 0);
+}
+
+export function formatDateTime(value, fallback = "Não informado") {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
 export function formatPhone(value) {
