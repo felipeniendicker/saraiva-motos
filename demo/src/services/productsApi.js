@@ -1,7 +1,5 @@
 import { apiRequest } from "./httpClient.js";
 
-export const BACKEND_API_ENABLED = String(import.meta.env?.VITE_BACKEND_API_ENABLED ?? "true").toLowerCase() !== "false";
-
 export class ProductsApiError extends Error {
   constructor(message, status) {
     super(message);

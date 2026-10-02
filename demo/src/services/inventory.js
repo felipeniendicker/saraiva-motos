@@ -26,19 +26,3 @@ export function getStockStatus(product) {
   if (product.quantidadeEstoque <= product.estoqueMinimo) return "BAIXO";
   return "NORMAL";
 }
-
-export function toLegacyStockMovement(form, product) {
-  const value = Number(form.valor);
-  if (form.operacao === "ENTRADA") {
-    return { produtoId: form.produtoId, tipo: "ENTRADA", quantidade: value, motivo: form.motivo };
-  }
-  if (form.operacao === "SAIDA") {
-    return { produtoId: form.produtoId, tipo: "SAIDA_MANUAL", quantidade: value, motivo: form.motivo };
-  }
-  return {
-    produtoId: form.produtoId,
-    tipo: value > product.quantidadeEstoque ? "AJUSTE_ENTRADA" : "AJUSTE_SAIDA",
-    quantidade: Math.abs(value - product.quantidadeEstoque),
-    motivo: form.motivo
-  };
-}

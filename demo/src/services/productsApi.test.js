@@ -1,10 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BACKEND_API_ENABLED, lookupProductByCode } from "./productsApi.js";
-
-test("backend é o modo operacional padrão", () => {
-  assert.equal(BACKEND_API_ENABLED, true);
-});
+import { lookupProductByCode } from "./productsApi.js";
 
 test("lookup preserva zeros e usa endpoint estruturado com Bearer", async () => {
   const values = new Map([["saraiva-motos-auth-token", "jwt-barcode"]]);

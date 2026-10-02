@@ -25,7 +25,7 @@ import {
   searchActiveProducts
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
-import { BACKEND_API_ENABLED, lookupProductByCode, listProducts } from "../services/productsApi.js";
+import { lookupProductByCode, listProducts } from "../services/productsApi.js";
 import { listClients } from "../services/clientsApi.js";
 import { cancelSaleApi, createSale, listSales } from "../services/salesApi.js";
 import { interpretSalesLookupResponse } from "../services/productLookup.js";
@@ -474,6 +474,6 @@ function BackendSalesPage() {
   return <>{error && <div className="pdv-notice notice-error">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onLookupProductByCode={lookupProductByCode}/></>;
 }
 
-export default function SalesPage(props) {
-  return BACKEND_API_ENABLED ? <BackendSalesPage /> : <SalesWorkspace {...props} />;
+export default function SalesPage() {
+  return <BackendSalesPage />;
 }

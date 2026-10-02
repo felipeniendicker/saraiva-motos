@@ -25,10 +25,7 @@ $env:JWT_SECRET = "defina-um-segredo-local-com-pelo-menos-32-bytes"
 .\mvnw.cmd spring-boot:run
 ```
 
-O frontend recebe:
-
-- `VITE_BACKEND_API_ENABLED` é habilitado por padrão; use `false` somente para executar deliberadamente o modo legado isolado;
-- `VITE_API_URL`, cujo padrão local é `http://localhost:8080`.
+O frontend utiliza sempre a API Spring Boot. `VITE_API_URL` define o endereço do backend e possui `http://localhost:8080` como padrão local.
 
 ```powershell
 cd demo
@@ -36,7 +33,7 @@ $env:VITE_API_URL = "http://localhost:8080"
 npm run dev
 ```
 
-No modo backend não há leitura, escrita, sincronização ou fallback do banco operacional em `localStorage`, e nenhum dado seed é inicializado. A única persistência local é o JWT, na chave exclusiva `saraiva-motos-auth-token`; senhas nunca são armazenadas. Falhas da API são exibidas como erro.
+Não há banco operacional, dados seed ou fallback em `localStorage`. A única persistência local é o JWT, na chave exclusiva `saraiva-motos-auth-token`; senhas nunca são armazenadas. Falhas da API tornam a operação temporariamente indisponível e são exibidas como erro.
 
 Em produção, defina `VITE_API_URL` durante o build do frontend e `CORS_ALLOWED_ORIGINS` no backend com a origem HTTPS exata da interface. Não use `*`. O backend deve receber `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e um `JWT_SECRET` exclusivo por variáveis do ambiente de implantação.
 
@@ -48,7 +45,7 @@ Esta etapa não possui cadastro público, recuperação de senha, perfis, cargos
 
 ## Compatibilidade legada
 
-O modo `VITE_BACKEND_API_ENABLED=false` permanece temporariamente para testes e demonstração isolada dos seis módulos atuais. Somente esse modo utiliza `storage.js`, `seed.js` e `localStorage`. Orçamentos, Oficina/Serviços, Fornecedores e Faturamento não fazem parte do sistema atual e foram removidos.
+A arquitetura operacional possui uma única fonte de verdade: frontend React → backend Spring Boot → MySQL. Orçamentos, Oficina/Serviços, Fornecedores e Faturamento não fazem parte do sistema atual.
 
 ## Dashboard e relatórios
 

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { STOCK_MOVEMENT_TYPES } from "../data/domain.js";
-import { filterStockMovements, getStockStatus, searchOperationalProducts, toLegacyStockMovement } from "../services/inventory.js";
-import { BACKEND_API_ENABLED, listProducts } from "../services/productsApi.js";
+import { filterStockMovements, getStockStatus, searchOperationalProducts } from "../services/inventory.js";
+import { listProducts } from "../services/productsApi.js";
 import { addStock, adjustStock, listStockMovements, removeStock } from "../services/stockApi.js";
 
 const initialForm = { produtoId: "", operacao: "ENTRADA", valor: "1", motivo: "" };
@@ -22,22 +22,21 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-export default function InventoryPage({ db, onMovement }) {
+export default function InventoryPage() {
   const [form, setForm] = useState(initialForm);
   const [productSearch, setProductSearch] = useState("");
   const [filters, setFilters] = useState(initialFilters);
   const [apiProducts, setApiProducts] = useState([]);
   const [apiMovements, setApiMovements] = useState([]);
-  const [loading, setLoading] = useState(BACKEND_API_ENABLED);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const products = BACKEND_API_ENABLED ? apiProducts : db.products;
+  const products = apiProducts;
   const activeProducts = useMemo(() => searchOperationalProducts(products, productSearch), [products, productSearch]);
   const lowStock = products.filter((product) => product.ativo && product.quantidadeEstoque <= product.estoqueMinimo);
   const selected = products.find((product) => String(product.id) === String(form.produtoId));
   const movements = useMemo(() => {
-    const source = BACKEND_API_ENABLED ? apiMovements : db.stockMovements;
-    return filterStockMovements(source, filters);
-  }, [apiMovements, db.stockMovements, filters]);
+    return filterStockMovements(apiMovements, filters);
+  }, [apiMovements, filters]);
 
   async function loadApiData() {
     const [loadedProducts, loadedMovements] = await Promise.all([
@@ -48,7 +47,6 @@ export default function InventoryPage({ db, onMovement }) {
   }
 
   useEffect(() => {
-    if (!BACKEND_API_ENABLED) return undefined;
     let active = true;
     setLoading(true);
     Promise.all([listProducts({ includeInactive: true }), listStockMovements()])
@@ -81,26 +79,19 @@ export default function InventoryPage({ db, onMovement }) {
     if (form.operacao === "AJUSTE" && !window.confirm(`Confirmar ajuste de ${selected.quantidadeEstoque} para ${value} unidade(s)?`)) return;
     if (form.operacao === "SAIDA" && !window.confirm(`Confirmar saída manual de ${value} unidade(s) de ${selected.nome}?`)) return;
 
-    if (BACKEND_API_ENABLED) {
-      setLoading(true);
-      try {
-        if (form.operacao === "ENTRADA") await addStock({ produtoId: Number(form.produtoId), quantidade: value, observacao: form.motivo });
-        if (form.operacao === "AJUSTE") await adjustStock({ produtoId: Number(form.produtoId), novoSaldo: value, motivo: form.motivo });
-        if (form.operacao === "SAIDA") await removeStock({ produtoId: Number(form.produtoId), quantidade: value, motivo: form.motivo });
-        await loadApiData();
-        setMessage("Movimentação registrada com sucesso.");
-        setForm(initialForm);
-      } catch (error) {
-        setMessage(error.message || "Não foi possível registrar a movimentação.");
-      } finally {
-        setLoading(false);
-      }
-      return;
+    setLoading(true);
+    try {
+      if (form.operacao === "ENTRADA") await addStock({ produtoId: Number(form.produtoId), quantidade: value, observacao: form.motivo });
+      if (form.operacao === "AJUSTE") await adjustStock({ produtoId: Number(form.produtoId), novoSaldo: value, motivo: form.motivo });
+      if (form.operacao === "SAIDA") await removeStock({ produtoId: Number(form.produtoId), quantidade: value, motivo: form.motivo });
+      await loadApiData();
+      setMessage("Movimentação registrada com sucesso.");
+      setForm(initialForm);
+    } catch (error) {
+      setMessage(error.message || "Não foi possível registrar a movimentação.");
+    } finally {
+      setLoading(false);
     }
-
-    onMovement(toLegacyStockMovement(form, selected));
-    setForm(initialForm);
-    setMessage("Movimentação registrada com sucesso.");
   }
 
   return <div className="page-stack">

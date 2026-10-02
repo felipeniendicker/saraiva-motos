@@ -58,12 +58,17 @@ public class UpcItemDbProductLookupProvider implements ProductLookupProvider {
             LOGGER.warn("Falha de comunicação ou resposta inválida do provider UPCITEMDB para o código {}: {}",
                     codigo, exception.getClass().getSimpleName());
             throw new ProductLookupProviderUnavailableException("Provider externo indisponível.", exception);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Resposta inesperada do provider UPCITEMDB para o código {}: {}",
+                    codigo, exception.getClass().getSimpleName());
+            throw new ProductLookupProviderUnavailableException("Resposta inválida do provider externo.", exception);
         }
     }
 
     private Optional<ProdutoSugestaoResponse> firstSuggestion(UpcItemDbResponse response, String codigo) {
         if (response == null || response.items() == null || response.items().isEmpty()) return Optional.empty();
         UpcItemDbItem item = response.items().get(0);
+        if (item == null) return Optional.empty();
         return Optional.of(new ProdutoSugestaoResponse(
                 "UPCITEMDB",
                 codigo,

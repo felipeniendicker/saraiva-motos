@@ -126,6 +126,24 @@ class ProductLookupServiceTests {
         assertTrue(result.mensagem().contains("cadastrar"));
     }
 
+    @Test
+    void reportedLeadingZeroGtinProviderFailureReturnsManualRegistrationState() {
+        ProductLookupProvider provider = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(provider));
+        when(repository.findByCodigoBarras("000000736473")).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaOrderByIdAsc("000000736473")).thenReturn(List.of());
+        when(provider.supports("000000736473")).thenReturn(true);
+        when(provider.lookup("000000736473"))
+                .thenThrow(new ProductLookupProviderUnavailableException("resposta inesperada"));
+
+        var result = service.lookup("000000736473");
+
+        assertFalse(result.encontrado());
+        assertEquals("000000736473", result.codigoConsultado());
+        assertEquals("EXTERNO_INDISPONIVEL", result.origem());
+        assertTrue(result.mensagem().contains("cadastrar"));
+    }
+
     private Produto product(boolean active) {
         Produto product = new Produto();
         product.setId(1L);

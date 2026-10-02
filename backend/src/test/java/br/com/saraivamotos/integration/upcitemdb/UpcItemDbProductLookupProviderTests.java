@@ -85,6 +85,23 @@ class UpcItemDbProductLookupProviderTests {
     }
 
     @Test
+    void reportedLeadingZeroGtinNotFoundDoesNotBecomeServerError() {
+        server.expect(requestTo("https://provider.test/lookup?upc=000000736473"))
+                .andRespond(withSuccess("{\"code\":\"OK\",\"total\":0,\"offset\":0,\"items\":[]}", MediaType.APPLICATION_JSON));
+
+        assertTrue(provider.lookup("000000736473").isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void nullItemInSuccessfulResponseIsTreatedAsNotFound() {
+        server.expect(requestTo("https://provider.test/lookup?upc=000000736473"))
+                .andRespond(withSuccess("{\"code\":\"OK\",\"total\":1,\"items\":[null]}", MediaType.APPLICATION_JSON));
+
+        assertTrue(provider.lookup("000000736473").isEmpty());
+    }
+
+    @Test
     void notFoundAndBadRequestMeanNoSuggestion() {
         server.expect(requestTo("https://provider.test/lookup?upc=7891234567895"))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.NOT_FOUND));
