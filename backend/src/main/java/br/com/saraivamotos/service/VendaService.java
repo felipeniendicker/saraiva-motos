@@ -102,7 +102,13 @@ public class VendaService {
     }
 
     @Transactional(readOnly = true)
-    public List<VendaResponse> listar(String numero, StatusVenda status, LocalDate dataInicial, LocalDate dataFinal) {
+    public List<VendaResponse> listar(String numero, StatusVenda status, LocalDate dataInicial, LocalDate dataFinal,
+            Long clienteId) {
+        if (clienteId != null) {
+            return vendaRepository.findByClienteIdOrderByDataHoraDescIdDesc(clienteId).stream()
+                    .map(VendaResponse::from)
+                    .toList();
+        }
         LocalDateTime inicio = dataInicial == null ? null : dataInicial.atStartOfDay();
         LocalDateTime fim = dataFinal == null ? null : dataFinal.plusDays(1).atStartOfDay();
         if (dataInicial != null && dataFinal != null && dataFinal.isBefore(dataInicial)) {

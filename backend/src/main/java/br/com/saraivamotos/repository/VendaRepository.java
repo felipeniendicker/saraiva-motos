@@ -46,6 +46,9 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     Optional<Venda> buscarCompletaPorIdParaAtualizar(@Param("id") Long id);
 
     @EntityGraph(attributePaths = {"itens", "itens.produto"})
+    List<Venda> findByClienteIdOrderByDataHoraDescIdDesc(Long clienteId);
+
+    @EntityGraph(attributePaths = {"itens", "itens.produto"})
     @Query("""
             SELECT DISTINCT v FROM Venda v
             WHERE (:numero IS NULL OR LOWER(v.numeroVenda) LIKE LOWER(CONCAT('%', :numero, '%')))

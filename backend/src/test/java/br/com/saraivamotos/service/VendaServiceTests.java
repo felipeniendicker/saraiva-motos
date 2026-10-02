@@ -243,6 +243,31 @@ class VendaServiceTests {
         verify(movimentacaoRepository, never()).saveAll(any());
     }
 
+    @Test
+    void listarPorClienteIncluiVendaCanceladaEUsaConsultaDedicada() {
+        Produto produto = produto(5, true);
+        Venda venda = vendaConcluida(produto);
+        venda.setStatus(StatusVenda.CANCELADA);
+        venda.setClienteId(8L);
+        when(vendaRepository.findByClienteIdOrderByDataHoraDescIdDesc(8L)).thenReturn(List.of(venda));
+
+        List<VendaResponse> response = service.listar(null, null, null, null, 8L);
+
+        assertEquals(1, response.size());
+        assertEquals(StatusVenda.CANCELADA, response.get(0).status());
+        verify(vendaRepository).findByClienteIdOrderByDataHoraDescIdDesc(8L);
+        verify(vendaRepository, never()).buscar(any(), any(), any(), any());
+    }
+
+    @Test
+    void vendaSemClienteNaoEhAssociadaAoHistoricoDeOutroCliente() {
+        when(vendaRepository.findByClienteIdOrderByDataHoraDescIdDesc(8L)).thenReturn(List.of());
+
+        assertEquals(0, service.listar(null, null, null, null, 8L).size());
+
+        verify(vendaRepository).findByClienteIdOrderByDataHoraDescIdDesc(8L);
+    }
+
     private Produto produto(int estoque, boolean ativo) {
         Produto produto = new Produto();
         produto.setId(1L);

@@ -31,6 +31,11 @@ class ClienteServiceTests {
     @Test void inexistenteRetornaErro() { when(repository.findById(9L)).thenReturn(Optional.empty()); assertThrows(ClienteNaoEncontradoException.class, () -> service.buscar(9L)); }
     @Test void listaAtivosComBusca() { when(repository.buscar("123", false)).thenReturn(List.of(cliente(true))); assertEquals(1, service.listar(" 123 ", false).size()); }
     @Test void incluiInativos() { when(repository.buscar(null, true)).thenReturn(List.of(cliente(false))); assertFalse(service.listar(null, true).get(0).ativo()); }
+    @Test void cadastraClienteSemDocumentoETelefone() {
+        ClienteResponse r = service.criar(new ClienteRequest("Cliente sem documento", null, null,
+                TipoCliente.CLIENTE_COMUM, null, null));
+        assertNull(r.cpfCnpj()); assertNull(r.telefone()); assertTrue(r.ativo());
+    }
     @Test void atualizacaoPreservaCadastroEAtivo() {
         Cliente c = cliente(false); LocalDateTime data = c.getDataCadastro(); when(repository.findById(1L)).thenReturn(Optional.of(c));
         ClienteResponse r = service.atualizar(1L, new ClienteRequest("Novo", null, null, TipoCliente.OFICINA, null, null));

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import EmptyState from "./EmptyState.jsx";
 import Panel from "./Panel.jsx";
 import SaleReceiptPreview from "./SaleReceiptPreview.jsx";
+import SaleDetailsContent, { formatSaleDateTime } from "./SaleDetailsContent.jsx";
 import {
   PAYMENT_METHOD_LABELS,
   SALE_STATUS_LABELS
@@ -11,14 +12,6 @@ import {
   getSaleCustomerLabel
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
-
-function formatDateTime(value) {
-  if (!value) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
 
 const initialFilters = {
   search: "",
@@ -115,7 +108,7 @@ export default function SalesHistory({ db, onCancelSale }) {
               const itemCount = sale.itens.reduce((total, item) => total + item.quantidade, 0);
               return (
                 <button type="button" key={sale.id} className="sale-history-row" onClick={() => openSale(sale.id)}>
-                  <div><strong>{sale.numeroVenda}</strong><span>{formatDateTime(sale.dataHora)}</span></div>
+                  <div><strong>{sale.numeroVenda}</strong><span>{formatSaleDateTime(sale.dataHora)}</span></div>
                   <div><strong>{getSaleCustomerLabel(sale, db.customers)}</strong><span>{sale.tipoPrecoUtilizado}</span></div>
                   <div><span>Itens</span><strong>{itemCount}</strong></div>
                   <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
@@ -133,45 +126,16 @@ export default function SalesHistory({ db, onCancelSale }) {
       {selectedSale && (
         <Panel
           title={`Detalhes da venda ${selectedSale.numeroVenda}`}
-          description={formatDateTime(selectedSale.dataHora)}
+          description={formatSaleDateTime(selectedSale.dataHora)}
           action={<button type="button" className="secondary-button" onClick={closeDetails}>Fechar detalhes</button>}
         >
-          <div className="sale-details-grid">
-            <div><span>Status</span><strong>{SALE_STATUS_LABELS[selectedSale.status] || selectedSale.status}</strong></div>
-            <div><span>Cliente</span><strong>{getSaleCustomerLabel(selectedSale, db.customers)}</strong></div>
-            <div><span>Tipo de preço</span><strong>{selectedSale.tipoPrecoUtilizado}</strong></div>
-            <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[selectedSale.formaPagamento] || selectedSale.formaPagamento}</strong></div>
-            <div className="field-wide"><span>Observações</span><strong>{selectedSale.observacoes || "Sem observações."}</strong></div>
-          </div>
-
-          <div className="sale-detail-items">
-            {selectedSale.itens.map((item) => (
-              <article key={item.id} className="sale-detail-item">
-                <div><strong>{item.descricaoProduto}</strong><span>{item.codigoProduto || "Sem referência"}</span></div>
-                <div><span>Quantidade</span><strong>{item.quantidade}</strong></div>
-                <div><span>Preço original</span><strong>{formatCurrency(item.precoOriginal)}</strong></div>
-                <div><span>Preço praticado</span><strong>{formatCurrency(item.precoUnitario)}</strong></div>
-                <div><span>Subtotal</span><strong>{formatCurrency(item.subtotal)}</strong></div>
-              </article>
-            ))}
-          </div>
-
-          <div className="sale-detail-totals">
-            <span>Subtotal <strong>{formatCurrency(selectedSale.subtotal)}</strong></span>
-            <span>Desconto <strong>{formatCurrency(selectedSale.desconto)}</strong></span>
-            <span>Total <strong>{formatCurrency(selectedSale.total)}</strong></span>
-          </div>
+          <SaleDetailsContent sale={selectedSale} customers={db.customers} />
 
           <div className="form-actions-pro sale-detail-actions">
             <button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button>
           </div>
 
-          {selectedSale.status === "CANCELADA" ? (
-            <div className="cancellation-record">
-              <strong>Venda cancelada em {formatDateTime(selectedSale.dataCancelamento)}</strong>
-              <p>Motivo: {selectedSale.motivoCancelamento}</p>
-            </div>
-          ) : showCancellation ? (
+          {selectedSale.status !== "CANCELADA" && (showCancellation ? (
             <div className="cancellation-confirmation">
               <strong>Cancelar a venda {selectedSale.numeroVenda}?</strong>
               <p>Todos os itens desta venda voltarão ao estoque. Esta ação ficará registrada no histórico.</p>
@@ -189,7 +153,7 @@ export default function SalesHistory({ db, onCancelSale }) {
             <div className="form-actions-pro sale-detail-actions">
               <button type="button" className="danger-button" onClick={() => setShowCancellation(true)}>Cancelar venda</button>
             </div>
-          )}
+          ))}
         </Panel>
       )}
 

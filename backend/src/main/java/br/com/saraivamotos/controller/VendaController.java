@@ -35,8 +35,9 @@ public class VendaController {
     public List<VendaResponse> listar(@RequestParam(required = false) String numero,
             @RequestParam(required = false) StatusVenda status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicial,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFinal) {
-        return service.listar(numero, status, dataInicial, dataFinal);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFinal,
+            @RequestParam(required = false) Long clienteId) {
+        return service.listar(numero, status, dataInicial, dataFinal, clienteId);
     }
 
     @GetMapping("/{id}")
