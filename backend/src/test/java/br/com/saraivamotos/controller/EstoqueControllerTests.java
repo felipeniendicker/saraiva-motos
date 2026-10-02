@@ -97,6 +97,26 @@ class EstoqueControllerTests {
     }
 
     @Test
+    void saidaManualValidaRetornaCreated() throws Exception {
+        when(service.saida(any())).thenReturn(response(TipoMovimentacaoEstoque.SAIDA_MANUAL, 2));
+
+        mockMvc.perform(post("/api/estoque/saida")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"produtoId\":1,\"quantidade\":3,\"motivo\":\"Uso interno\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tipo").value("SAIDA_MANUAL"))
+                .andExpect(jsonPath("$.saldoPosterior").value(2));
+    }
+
+    @Test
+    void saidaManualInvalidaRetornaBadRequest() throws Exception {
+        mockMvc.perform(post("/api/estoque/saida")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"produtoId\":1,\"quantidade\":0,\"motivo\":\" \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void produtoInexistenteRetornaNotFound() throws Exception {
         when(service.entrada(any())).thenThrow(new ProdutoNaoEncontradoException("Produto não encontrado."));
 

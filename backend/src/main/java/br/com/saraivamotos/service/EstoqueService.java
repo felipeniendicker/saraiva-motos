@@ -9,6 +9,7 @@ import br.com.saraivamotos.domain.TipoMovimentacaoEstoque;
 import br.com.saraivamotos.dto.AjusteEstoqueRequest;
 import br.com.saraivamotos.dto.EntradaEstoqueRequest;
 import br.com.saraivamotos.dto.MovimentacaoEstoqueResponse;
+import br.com.saraivamotos.dto.SaidaEstoqueRequest;
 import br.com.saraivamotos.exception.OperacaoEstoqueInvalidaException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
@@ -80,6 +81,25 @@ public class EstoqueService {
                 request.motivo().trim());
     }
 
+    @Transactional
+    public MovimentacaoEstoqueResponse saida(SaidaEstoqueRequest request) {
+        validarSaida(request);
+        Produto produto = buscarProdutoParaMovimentacao(request.produtoId());
+        int saldoAnterior = produto.getQuantidadeEstoque();
+        if (request.quantidade() > saldoAnterior) {
+            throw new OperacaoEstoqueInvalidaException(
+                    "Estoque insuficiente. Disponível: " + saldoAnterior + " unidade(s).");
+        }
+
+        return registrar(
+                produto,
+                TipoMovimentacaoEstoque.SAIDA_MANUAL,
+                request.quantidade(),
+                saldoAnterior,
+                saldoAnterior - request.quantidade(),
+                request.motivo().trim());
+    }
+
     @Transactional(readOnly = true)
     public List<MovimentacaoEstoqueResponse> listarMovimentacoes(Long produtoId) {
         List<MovimentacaoEstoque> movimentacoes = produtoId == null
@@ -134,6 +154,15 @@ public class EstoqueService {
         }
         if (request.motivo() == null || request.motivo().isBlank()) {
             throw new IllegalArgumentException("O motivo do ajuste é obrigatório.");
+        }
+    }
+
+    private void validarSaida(SaidaEstoqueRequest request) {
+        if (request.quantidade() == null || request.quantidade() <= 0) {
+            throw new IllegalArgumentException("A quantidade da saída deve ser maior que zero.");
+        }
+        if (request.motivo() == null || request.motivo().isBlank()) {
+            throw new IllegalArgumentException("O motivo da saída é obrigatório.");
         }
     }
 

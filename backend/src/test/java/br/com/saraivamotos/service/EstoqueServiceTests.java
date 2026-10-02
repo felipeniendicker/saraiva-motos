@@ -10,6 +10,7 @@ import br.com.saraivamotos.domain.TipoMovimentacaoEstoque;
 import br.com.saraivamotos.dto.AjusteEstoqueRequest;
 import br.com.saraivamotos.dto.EntradaEstoqueRequest;
 import br.com.saraivamotos.dto.MovimentacaoEstoqueResponse;
+import br.com.saraivamotos.dto.SaidaEstoqueRequest;
 import br.com.saraivamotos.exception.OperacaoEstoqueInvalidaException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
@@ -172,6 +173,63 @@ class EstoqueServiceTests {
 
         assertThrows(OperacaoEstoqueInvalidaException.class,
                 () -> service.ajustar(new AjusteEstoqueRequest(1L, 6, "Contagem")));
+    }
+
+    @Test
+    void saidaManualReduzEstoqueERegistraSaldos() {
+        Produto produto = produto(7, true);
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produto));
+
+        MovimentacaoEstoqueResponse response = service.saida(
+                new SaidaEstoqueRequest(1L, 3, "Uso interno"));
+
+        assertEquals(TipoMovimentacaoEstoque.SAIDA_MANUAL, response.tipo());
+        assertEquals(3, response.quantidade());
+        assertEquals(7, response.saldoAnterior());
+        assertEquals(4, response.saldoPosterior());
+        assertEquals(4, produto.getQuantidadeEstoque());
+        assertEquals("Uso interno", response.motivo());
+    }
+
+    @Test
+    void saidaManualPodeZerarEstoque() {
+        Produto produto = produto(2, true);
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produto));
+
+        service.saida(new SaidaEstoqueRequest(1L, 2, "Avaria"));
+
+        assertEquals(0, produto.getQuantidadeEstoque());
+    }
+
+    @Test
+    void saidaMaiorQueSaldoFalhaSemMovimentacao() {
+        Produto produto = produto(2, true);
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produto));
+
+        assertThrows(OperacaoEstoqueInvalidaException.class,
+                () -> service.saida(new SaidaEstoqueRequest(1L, 3, "Uso interno")));
+
+        assertEquals(2, produto.getQuantidadeEstoque());
+        verify(movimentacaoRepository, never()).save(any());
+        verify(produtoRepository, never()).save(any());
+    }
+
+    @Test
+    void saidaSemMotivoOuComQuantidadeInvalidaEhRejeitada() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saida(new SaidaEstoqueRequest(1L, 1, " ")));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saida(new SaidaEstoqueRequest(1L, 0, "Uso interno")));
+        verify(produtoRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void saidaEmProdutoInativoEhRejeitada() {
+        when(produtoRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(produto(5, false)));
+
+        assertThrows(OperacaoEstoqueInvalidaException.class,
+                () -> service.saida(new SaidaEstoqueRequest(1L, 1, "Avaria")));
+        verify(movimentacaoRepository, never()).save(any());
     }
 
     @Test

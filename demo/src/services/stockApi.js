@@ -20,6 +20,10 @@ export function adjustStock(data) {
   return request("/api/estoque/ajuste", { method: "POST", body: JSON.stringify(data) });
 }
 
+export function removeStock(data) {
+  return request("/api/estoque/saida", { method: "POST", body: JSON.stringify(data) });
+}
+
 export function listStockMovements({ productId } = {}) {
   const query = productId === undefined || productId === null || productId === ""
     ? ""

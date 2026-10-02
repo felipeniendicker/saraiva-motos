@@ -5,6 +5,7 @@ import java.util.List;
 import br.com.saraivamotos.dto.AjusteEstoqueRequest;
 import br.com.saraivamotos.dto.EntradaEstoqueRequest;
 import br.com.saraivamotos.dto.MovimentacaoEstoqueResponse;
+import br.com.saraivamotos.dto.SaidaEstoqueRequest;
 import br.com.saraivamotos.service.EstoqueService;
 
 import jakarta.validation.Valid;
@@ -38,6 +39,12 @@ public class EstoqueController {
     public ResponseEntity<MovimentacaoEstoqueResponse> ajuste(
             @Valid @RequestBody AjusteEstoqueRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.ajustar(request));
+    }
+
+    @PostMapping("/saida")
+    public ResponseEntity<MovimentacaoEstoqueResponse> saida(
+            @Valid @RequestBody SaidaEstoqueRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.saida(request));
     }
 
     @GetMapping("/movimentacoes")

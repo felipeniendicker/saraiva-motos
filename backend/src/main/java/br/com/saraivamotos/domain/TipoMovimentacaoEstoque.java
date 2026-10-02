@@ -5,5 +5,6 @@ public enum TipoMovimentacaoEstoque {
     SAIDA_VENDA,
     AJUSTE_ENTRADA,
     AJUSTE_SAIDA,
+    SAIDA_MANUAL,
     CANCELAMENTO_VENDA
 }

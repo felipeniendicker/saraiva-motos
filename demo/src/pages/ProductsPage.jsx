@@ -346,8 +346,8 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
             <input type="number" min="0" step="0.01" value={form.precoRevenda} onChange={(event) => update("precoRevenda", event.target.value)} required />
           </label>
           <label>
-            {BACKEND_API_ENABLED ? "Estoque atual (altere na tela Estoque)" : "Estoque atual"}
-            <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required disabled={BACKEND_API_ENABLED} />
+            {BACKEND_API_ENABLED || form.id ? "Estoque atual (altere na tela Estoque)" : "Estoque inicial"}
+            <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required disabled={BACKEND_API_ENABLED || Boolean(form.id)} />
           </label>
           <label>
             Estoque mínimo
@@ -396,8 +396,10 @@ export default function ProductsPage({ db, onSave, onToggleActive }) {
                     <div><span>Categoria</span><strong>{product.categoria || "Não informada"}</strong></div>
                     <div><span>Estoque</span><strong>{product.quantidadeEstoque} un. / mín. {product.estoqueMinimo}</strong></div>
                     <div><span>Aplicação</span><strong>{product.aplicacao || "Não informada"}</strong></div>
+                    <div><span>Custo</span><strong>{formatCurrency(product.valorCusto)}</strong></div>
                     <div><span>Varejo</span><strong>{formatCurrency(product.precoVarejo)}</strong></div>
                     <div><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
+                    <div><span>Cadastro</span><strong>{product.dataCadastro ? new Date(product.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
                   </div>
                   <div className="card-actions">
                     <button className="secondary-button" onClick={() => edit(product)}>Editar</button>

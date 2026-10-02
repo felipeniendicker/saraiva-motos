@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addStock, adjustStock, listProductMovements, listStockMovements, StockApiError } from "./stockApi.js";
+import { addStock, adjustStock, listProductMovements, listStockMovements, removeStock, StockApiError } from "./stockApi.js";
 
 function response(body, ok = true, status = 200) {
   return { ok, status, json: async () => body };
@@ -23,6 +23,16 @@ test("envia ajuste com o novo saldo real", async () => {
     return response({ saldoPosterior: 8 });
   };
   assert.equal((await adjustStock({ produtoId: 1, novoSaldo: 8, motivo: "Contagem" })).saldoPosterior, 8);
+});
+
+test("envia saída manual com quantidade e motivo", async () => {
+  global.fetch = async (url, options) => {
+    assert.equal(url, "http://localhost:8080/api/estoque/saida");
+    assert.equal(options.method, "POST");
+    assert.deepEqual(JSON.parse(options.body), { produtoId: 1, quantidade: 2, motivo: "Uso interno" });
+    return response({ tipo: "SAIDA_MANUAL", saldoPosterior: 3 });
+  };
+  assert.equal((await removeStock({ produtoId: 1, quantidade: 2, motivo: "Uso interno" })).saldoPosterior, 3);
 });
 
 test("consulta histórico geral", async () => {

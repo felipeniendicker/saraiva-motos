@@ -523,7 +523,37 @@ textarea:focus {
 }
 
 .stock-row {
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+}
+
+.stock-current-balance {
+  align-items: center;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+}
+
+.stock-current-balance span {
+  color: var(--muted);
+}
+
+.stock-history-filters {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.7fr) auto auto auto;
+  margin-bottom: 1rem;
+}
+
+.stock-history-filters label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 0.4rem;
 }
 
 .status-pill,
@@ -1559,6 +1589,7 @@ textarea:focus {
   .timeline-item,
   .table-row,
   .stock-row,
+  .stock-history-filters,
   .pdv-entry-grid,
   .cart-item,
   .scan-input-row,
