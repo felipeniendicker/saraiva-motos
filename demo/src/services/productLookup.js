@@ -100,6 +100,7 @@ function normalizeProviderResult(result, barcode) {
     categoria: result.categoria || null,
     descricao: result.descricao || null,
     aplicacao: result.aplicacao || null,
+    codigoReferencia: result.codigoReferencia || null,
     imagemUrl: result.imagemUrl || null,
     source: result.source || null
   };
@@ -193,6 +194,7 @@ export function applyLookupToProductForm(form, lookup) {
     marca: lookup.marca || form.marca,
     categoria: lookup.categoria || form.categoria,
     aplicacao: lookup.aplicacao || form.aplicacao,
+    codigoReferencia: lookup.codigoReferencia || form.codigoReferencia,
     observacoes: lookup.descricao || form.observacoes
   };
 }

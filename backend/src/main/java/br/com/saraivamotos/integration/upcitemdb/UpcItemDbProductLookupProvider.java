@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.core.Ordered;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -14,7 +15,7 @@ import br.com.saraivamotos.dto.ProdutoSugestaoResponse;
 import br.com.saraivamotos.service.ProductLookupProvider;
 import br.com.saraivamotos.service.ProductLookupProviderUnavailableException;
 
-public class UpcItemDbProductLookupProvider implements ProductLookupProvider {
+public class UpcItemDbProductLookupProvider implements ProductLookupProvider, Ordered {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UpcItemDbProductLookupProvider.class);
     private static final Pattern BARCODE = Pattern.compile("\\d{8,14}");
@@ -22,6 +23,11 @@ public class UpcItemDbProductLookupProvider implements ProductLookupProvider {
 
     public UpcItemDbProductLookupProvider(RestClient client) {
         this.client = client;
+    }
+
+    @Override
+    public int getOrder() {
+        return 100;
     }
 
     @Override
@@ -76,7 +82,8 @@ public class UpcItemDbProductLookupProvider implements ProductLookupProvider {
                 blankToNull(item.brand()),
                 blankToNull(item.category()),
                 blankToNull(item.description()),
-                blankToNull(item.model())));
+                blankToNull(item.model()),
+                null));
     }
 
     private String blankToNull(String value) {

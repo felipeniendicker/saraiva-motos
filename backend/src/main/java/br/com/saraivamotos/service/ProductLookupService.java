@@ -1,7 +1,9 @@
 package br.com.saraivamotos.service;
 
 import java.util.List;
+import java.util.ArrayList;
 
+import org.springframework.core.OrderComparator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +22,9 @@ public class ProductLookupService {
 
     public ProductLookupService(ProdutoRepository repository, List<ProductLookupProvider> providers) {
         this.repository = repository;
-        this.providers = List.copyOf(providers);
+        List<ProductLookupProvider> orderedProviders = new ArrayList<>(providers);
+        OrderComparator.sort(orderedProviders);
+        this.providers = List.copyOf(orderedProviders);
     }
 
     @Transactional(readOnly = true)

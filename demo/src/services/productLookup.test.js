@@ -74,6 +74,7 @@ test("50. produto externo encontrado retorna estrutura normalizada", async () =>
     nome: "Peça externa",
     marca: "Marca X",
     categoria: "Freios",
+    codigoReferencia: null,
     descricao: "Descrição",
     aplicacao: null,
     imagemUrl: null,
@@ -190,6 +191,28 @@ test("sugestão UPCitemdb preserva origem e pré-preenche somente dados permitid
   assert.equal(result.source, "UPCITEMDB");
   assert.equal(form.nome, "Peça");
   assert.equal(form.aplicacao, "Modelo X");
+  assert.equal(form.valorCusto, "12");
+  assert.equal(form.precoVarejo, "25");
+  assert.equal(form.precoRevenda, "20");
+  assert.equal(form.quantidadeEstoque, "4");
+});
+
+test("sugestão Tavily preserva zeros e nunca altera dados financeiros ou estoque", async () => {
+  const result = await lookupProductByBarcode("000000736473", {
+    findLookup: async (code) => ({
+      encontrado: true,
+      origem: "TAVILY",
+      cadastradoLocalmente: false,
+      codigoConsultado: code,
+      sugestao: { nome: "Interruptor Magnetron", marca: "Magnetron", categoria: "Elétrica", codigoReferencia: "90235020", descricao: "Honda Titan/Fan" }
+    })
+  });
+  const form = applyLookupToProductForm({ ...baseForm, valorCusto: "12", precoVarejo: "25", precoRevenda: "20", quantidadeEstoque: "4" }, result);
+  assert.equal(result.source, "TAVILY");
+  assert.equal(result.barcode, "000000736473");
+  assert.equal(form.marca, "Magnetron");
+  assert.equal(form.categoria, "Elétrica");
+  assert.equal(form.codigoReferencia, "90235020");
   assert.equal(form.valorCusto, "12");
   assert.equal(form.precoVarejo, "25");
   assert.equal(form.precoRevenda, "20");

@@ -73,6 +73,12 @@ Configuração opcional do backend:
 - `UPCITEMDB_CONNECT_TIMEOUT=2500ms` define o timeout de conexão;
 - `UPCITEMDB_READ_TIMEOUT=4000ms` define o timeout de leitura.
 
+### Fallback de pesquisa com Tavily
+
+Quando o MySQL e o UPCitemdb não identificam um código, o backend pode consultar a API oficial Tavily Search como segundo fallback. Configure `TAVILY_ENABLED=true` e forneça `TAVILY_API_KEY` exclusivamente no ambiente do backend. O provider vem desabilitado por padrão e a chave nunca é enviada ao frontend.
+
+A Tavily utiliza busca básica, poucos resultados e somente aceita evidências que contenham literalmente o GTIN. Páginas genéricas de consulta de UPC/EAN são ignoradas. O resultado é apenas uma sugestão sujeita à confirmação humana; custo, preços e estoque nunca são obtidos da pesquisa externa. Timeout, limites, falhas HTTP e respostas inesperadas mantêm o cadastro manual disponível.
+
 Não há retry automático nem tentativa de contornar o limite gratuito. HTTP 429, erros externos, timeout, falha de rede e resposta inválida produzem um fallback seguro para cadastro manual. Assim, a operação e as vendas de itens cadastrados não dependem da internet nem do UPCitemdb.
 
 Uma resposta externa é sempre exibida como sugestão não confirmada. Podem ser sugeridos código de barras, nome, marca, categoria, descrição e modelo/aplicação quando efetivamente retornados. Imagens, ofertas e preços da internet são ignorados e não há download ou persistência de arquivos. Custo, preço de varejo, preço de revenda, estoque, estoque mínimo e margem continuam sendo informados e revisados pelo funcionário. A sugestão não é salva automaticamente e não pode entrar no carrinho antes de virar um Produto real no MySQL.

@@ -7,5 +7,6 @@ public record ProdutoSugestaoResponse(
         String marca,
         String categoria,
         String descricao,
-        String aplicacao) {
+        String aplicacao,
+        String codigoReferencia) {
 }

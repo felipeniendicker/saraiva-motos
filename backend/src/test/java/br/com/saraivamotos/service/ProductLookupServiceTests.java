@@ -88,7 +88,7 @@ class ProductLookupServiceTests {
         when(repository.findByCodigoReferenciaOrderByIdAsc("00123456")).thenReturn(List.of());
         when(provider.supports("00123456")).thenReturn(true);
         when(provider.lookup("00123456")).thenReturn(Optional.of(
-                new ProdutoSugestaoResponse("UPCITEMDB", "00123456", "Peça", null, null, null, null)));
+                new ProdutoSugestaoResponse("UPCITEMDB", "00123456", "Peça", null, null, null, null, null)));
 
         var result = service.lookup("00123456");
 
@@ -142,6 +142,57 @@ class ProductLookupServiceTests {
         assertEquals("000000736473", result.codigoConsultado());
         assertEquals("EXTERNO_INDISPONIVEL", result.origem());
         assertTrue(result.mensagem().contains("cadastrar"));
+    }
+
+    @Test
+    void upcItemDbSuggestionStopsBeforeTavily() {
+        ProductLookupProvider upc = mock(ProductLookupProvider.class);
+        ProductLookupProvider tavily = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(upc, tavily));
+        prepareExternalLookup("7898485619632");
+        when(upc.supports("7898485619632")).thenReturn(true);
+        when(upc.lookup("7898485619632")).thenReturn(Optional.of(
+                new ProdutoSugestaoResponse("UPCITEMDB", "7898485619632", "Peça", null, null, null, null, null)));
+
+        assertEquals("UPCITEMDB", service.lookup("7898485619632").origem());
+        verify(tavily, never()).lookup("7898485619632");
+    }
+
+    @Test
+    void upcItemDbMissCallsTavilyAndReturnsItsSuggestion() {
+        ProductLookupProvider upc = mock(ProductLookupProvider.class);
+        ProductLookupProvider tavily = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(upc, tavily));
+        prepareExternalLookup("7898485619632");
+        when(upc.supports("7898485619632")).thenReturn(true);
+        when(upc.lookup("7898485619632")).thenReturn(Optional.empty());
+        when(tavily.supports("7898485619632")).thenReturn(true);
+        when(tavily.lookup("7898485619632")).thenReturn(Optional.of(
+                new ProdutoSugestaoResponse("TAVILY", "7898485619632", "Interruptor Magnetron", null, null, "Honda Titan/Fan", null, null)));
+
+        var result = service.lookup("7898485619632");
+        assertEquals("TAVILY", result.origem());
+        assertEquals("7898485619632", result.codigoConsultado());
+    }
+
+    @Test
+    void unavailableUpcItemDbStillAllowsTavilyFallback() {
+        ProductLookupProvider upc = mock(ProductLookupProvider.class);
+        ProductLookupProvider tavily = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(upc, tavily));
+        prepareExternalLookup("7898485619632");
+        when(upc.supports("7898485619632")).thenReturn(true);
+        when(upc.lookup("7898485619632")).thenThrow(new ProductLookupProviderUnavailableException("timeout"));
+        when(tavily.supports("7898485619632")).thenReturn(true);
+        when(tavily.lookup("7898485619632")).thenReturn(Optional.empty());
+
+        assertEquals("EXTERNO_INDISPONIVEL", service.lookup("7898485619632").origem());
+        verify(tavily).lookup("7898485619632");
+    }
+
+    private void prepareExternalLookup(String code) {
+        when(repository.findByCodigoBarras(code)).thenReturn(Optional.empty());
+        when(repository.findByCodigoReferenciaOrderByIdAsc(code)).thenReturn(List.of());
     }
 
     private Produto product(boolean active) {
