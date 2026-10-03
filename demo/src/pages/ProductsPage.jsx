@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import BarcodeInput from "../components/BarcodeInput.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { formatCurrency, normalizeText } from "../utils/formatters.js";
@@ -44,7 +45,10 @@ export default function ProductsPage() {
   const [apiProducts, setApiProducts] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
   const [apiSaving, setApiSaving] = useState(false);
-  const [apiMessage, setApiMessage] = useState("");
+  const [confirmation, setConfirmation] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [formExpanded, setFormExpanded] = useState(false);
+  const [formContext, setFormContext] = useState("manual");
   const barcodeInputRef = useRef(null);
   const [searchParams] = useSearchParams();
   const sourceProducts = apiProducts;
@@ -68,10 +72,10 @@ export default function ProductsPage() {
         const result = await searchProducts(search, { includeInactive: true });
         if (active) {
           setApiProducts(result);
-          setApiMessage("");
+          setFeedback(null);
         }
       } catch (error) {
-        if (active) setApiMessage(error.message || "Não foi possível carregar os produtos.");
+        if (active) setFeedback({ type: "danger", message: error.message || "Não foi possível carregar os produtos." });
       } finally {
         if (active) setApiLoading(false);
       }
@@ -88,6 +92,8 @@ export default function ProductsPage() {
     if (requestedCode) {
       setBarcodeQuery(requestedCode);
       setForm({ ...initialForm, codigoBarras: requestedCode });
+      setFormContext("manual");
+      setFormExpanded(true);
       scrollToForm();
     }
   }, [searchParams]);
@@ -116,6 +122,8 @@ export default function ProductsPage() {
 
   function prepareManualForm(barcode = "") {
     setForm({ ...initialForm, codigoBarras: normalizeBarcode(barcode) });
+    setFormContext("manual");
+    setFormExpanded(true);
     scrollToForm();
   }
 
@@ -144,6 +152,8 @@ export default function ProductsPage() {
 
   function useExternalData() {
     setForm(applyLookupToProductForm(initialForm, lookupResult));
+    setFormContext("external");
+    setFormExpanded(true);
     scrollToForm();
   }
 
@@ -170,19 +180,17 @@ export default function ProductsPage() {
         await createProduct(productData);
       }
       await reloadApiProducts();
-      setApiMessage("Produto salvo com sucesso.");
+      setFeedback({ type: "success", message: "Produto salvo com sucesso." });
       setForm(initialForm);
+      setFormExpanded(false);
     } catch (error) {
-      setApiMessage(error.message || "Não foi possível salvar o produto.");
+      setFeedback({ type: "danger", message: error.message || "Não foi possível salvar o produto." });
     } finally {
       setApiSaving(false);
     }
   }
 
   async function toggleActive(product) {
-    const action = product.ativo ? "desativar" : "reativar";
-    if (!window.confirm(`Deseja ${action} o produto ${product.nome}?`)) return;
-
     setApiSaving(true);
     try {
       if (product.ativo) {
@@ -191,9 +199,9 @@ export default function ProductsPage() {
         await reactivateProduct(product.id);
       }
       await reloadApiProducts();
-      setApiMessage(product.ativo ? "Produto desativado." : "Produto reativado.");
+      setFeedback({ type: "success", message: product.ativo ? "Produto desativado." : "Produto reativado." });
     } catch (error) {
-      setApiMessage(error.message || "Não foi possível alterar o produto.");
+      setFeedback({ type: "danger", message: error.message || "Não foi possível alterar o produto." });
     } finally {
       setApiSaving(false);
     }
@@ -215,7 +223,15 @@ export default function ProductsPage() {
       estoqueMinimo: String(product.estoqueMinimo),
       observacoes: product.observacoes
     });
+    setFormContext("edit");
+    setFormExpanded(true);
     scrollToForm();
+  }
+
+  function closeForm() {
+    setForm(initialForm);
+    setFormContext("manual");
+    setFormExpanded(false);
   }
 
   return (
@@ -269,11 +285,20 @@ export default function ProductsPage() {
         {lookupResult.status === PRODUCT_LOOKUP_STATUS.FOUND_EXTERNAL && (
           <div className="lookup-result lookup-external">
             <div>
-              <span className="status-pill status-aguardando">{lookupResult.source === "TAVILY" ? "Produto encontrado na web" : "Produto encontrado em fonte externa"}</span>
-              <h4>{lookupResult.nome || "Produto sem nome informado"}</h4>
-              <p>Fonte: <strong>{lookupResult.source === "TAVILY" ? "Tavily" : lookupResult.source || "Externa"}</strong> · sugestão não confirmada; revise os dados antes de cadastrar.</p>
-              <p>{lookupResult.marca || "Marca não informada"} · {lookupResult.categoria || "Categoria não informada"}</p>
-              {lookupResult.descricao && <p>{lookupResult.descricao}</p>}
+              <span className="status-pill status-aguardando">Produto encontrado na web</span>
+              <div className="external-result-heading">
+                <div><span>Origem da sugestão</span><strong>{lookupResult.source === "TAVILY" ? "Tavily" : lookupResult.source === "UPCITEMDB" ? "UPCitemdb" : lookupResult.source || "Fonte externa"}</strong></div>
+                <p>Confira os dados antes de cadastrar.</p>
+              </div>
+              <div className="external-product-data">
+                {lookupResult.nome && <div className="field-wide"><span>Nome</span><strong>{lookupResult.nome}</strong></div>}
+                {lookupResult.marca && <div><span>Marca</span><strong>{lookupResult.marca}</strong></div>}
+                {lookupResult.codigoReferencia && <div><span>Referência</span><strong>{lookupResult.codigoReferencia}</strong></div>}
+                {lookupResult.categoria && <div><span>Categoria</span><strong>{lookupResult.categoria}</strong></div>}
+                {lookupResult.aplicacao && <div><span>Aplicação</span><strong>{lookupResult.aplicacao}</strong></div>}
+                {lookupResult.barcode && <div><span>Código de barras</span><strong>{lookupResult.barcode}</strong></div>}
+                {lookupResult.descricao && <div className="field-wide"><span>Observações</span><strong>{lookupResult.descricao}</strong></div>}
+              </div>
             </div>
             <button type="button" className="primary-button" onClick={useExternalData}>Usar dados no cadastro</button>
           </div>
@@ -294,12 +319,15 @@ export default function ProductsPage() {
         )}
       </Panel>
 
-      <div id="product-form">
+      {formExpanded && <div id="product-form">
         <Panel
         title={form.id ? "Editar produto" : "Cadastrar produto"}
-        description="Dados comerciais, preços e controle de estoque da peça."
+        description={formContext === "external" ? "Sugestão externa aplicada. Revise todos os dados antes de salvar." : "Dados comerciais, preços e controle de estoque da peça."}
+        action={<span className={`product-form-context context-${formContext}`}>{form.id ? "Edição" : formContext === "external" ? "Sugestão da web" : "Novo cadastro"}</span>}
       >
-        <form className="form-grid-pro" onSubmit={submit}>
+        <form className="product-form" onSubmit={submit}>
+          <fieldset className="product-form-section product-identification-section">
+          <legend>Identificação</legend>
           <label>
             Nome do produto
             <input value={form.nome} onChange={(event) => update("nome", event.target.value)} required />
@@ -324,18 +352,24 @@ export default function ProductsPage() {
             Aplicação / modelo
             <input value={form.aplicacao} onChange={(event) => update("aplicacao", event.target.value)} placeholder="Ex.: Honda CG 160 2016+" />
           </label>
+          </fieldset>
+          <fieldset className="product-form-section product-prices-section">
+          <legend>Preços</legend>
           <label>
             Valor de custo
-            <input type="number" min="0" step="0.01" value={form.valorCusto} onChange={(event) => update("valorCusto", event.target.value)} required />
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={form.valorCusto} onChange={(event) => update("valorCusto", event.target.value)} required />
           </label>
           <label>
             Preço de varejo
-            <input type="number" min="0" step="0.01" value={form.precoVarejo} onChange={(event) => update("precoVarejo", event.target.value)} required />
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={form.precoVarejo} onChange={(event) => update("precoVarejo", event.target.value)} required />
           </label>
           <label>
             Preço de revenda
-            <input type="number" min="0" step="0.01" value={form.precoRevenda} onChange={(event) => update("precoRevenda", event.target.value)} required />
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={form.precoRevenda} onChange={(event) => update("precoRevenda", event.target.value)} required />
           </label>
+          </fieldset>
+          <fieldset className="product-form-section product-stock-section">
+          <legend>Estoque</legend>
           <label>
             Estoque atual (altere na tela Estoque)
             <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required disabled />
@@ -344,57 +378,69 @@ export default function ProductsPage() {
             Estoque mínimo
             <input type="number" min="0" value={form.estoqueMinimo} onChange={(event) => update("estoqueMinimo", event.target.value)} required />
           </label>
-          <label className="field-wide">
+          </fieldset>
+          <fieldset className="product-form-section product-complement-section">
+          <legend>Complemento</legend>
+          <label>
             Observações
             <textarea value={form.observacoes} onChange={(event) => update("observacoes", event.target.value)} rows={3} />
           </label>
-          <div className="form-actions-pro field-wide">
-            {form.id && <button type="button" className="secondary-button" disabled={apiSaving} onClick={() => setForm(initialForm)}>Cancelar edição</button>}
+          </fieldset>
+          <div className="form-actions-pro product-form-actions">
+            <button type="button" className="secondary-button" disabled={apiSaving} onClick={closeForm}>Cancelar</button>
             <button className="primary-button" disabled={apiSaving}>{apiSaving ? "Salvando..." : form.id ? "Salvar alterações" : "Cadastrar produto"}</button>
           </div>
         </form>
         </Panel>
-      </div>
+      </div>}
 
       <Panel
         title="Produtos cadastrados"
         description="Consulte referência, código de barras, estoque e preços."
-        action={<input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produto" />}
+        action={<label className="catalog-search">Buscar no catálogo<input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, código, marca..." /></label>}
       >
-        {apiMessage && (
-          <div className="lookup-result lookup-warning"><div><p>{apiMessage}</p></div></div>
+        {feedback && (
+          <div className={`feedback-message feedback-${feedback.type}`} role={feedback.type === "danger" ? "alert" : "status"}>{feedback.message}</div>
         )}
-        {apiLoading && <p>Carregando produtos...</p>}
-        {products.length === 0 ? (
+        {apiLoading ? <div className="section-loading" role="status"><span className="loading-indicator" aria-hidden="true" />Carregando produtos...</div> : feedback?.type === "danger" && products.length === 0 ? null : products.length === 0 ? (
           <EmptyState title="Nenhum produto encontrado" description="Ajuste a busca ou cadastre o primeiro produto." />
         ) : (
-          <div className="card-grid">
+          <div className="products-catalog-grid">
             {products.map((product) => {
               const lowStock = product.quantidadeEstoque <= product.estoqueMinimo;
+              const noStock = product.quantidadeEstoque === 0;
               return (
-                <article key={product.id} className={`info-card${lowStock && product.ativo ? " low-stock-card" : ""}`}>
+                <article key={product.id} className={`info-card product-catalog-card${lowStock && product.ativo ? " low-stock-card" : ""}`}>
                   <div className="info-card-top">
                     <div>
                       <h4>{product.nome}</h4>
-                      <p>{product.codigoReferencia || "Sem referência"} · {product.marca || "Sem marca"}</p>
+                      <p>{product.codigoReferencia || "Sem referência"}</p>
                     </div>
-                    <span className={`status-pill ${product.ativo ? (lowStock ? "status-recusado" : "status-aprovado") : "status-cancelado"}`}>
-                      {!product.ativo ? "Inativo" : lowStock ? "Estoque baixo" : "Ativo"}
-                    </span>
+                    <div className="product-statuses">
+                      <span className={`status-pill ${product.ativo ? "status-aprovado" : "status-cancelado"}`}>{product.ativo ? "Ativo" : "Inativo"}</span>
+                      <span className={`status-pill ${noStock ? "status-cancelado" : lowStock ? "status-pendente" : "status-aprovado"}`}>{noStock ? "Sem estoque" : lowStock ? "Estoque baixo" : "Estoque normal"}</span>
+                    </div>
                   </div>
-                  <div className="info-card-body">
-                    <div><span>Código de barras</span><strong>{product.codigoBarras || "Não informado"}</strong></div>
-                    <div><span>Categoria</span><strong>{product.categoria || "Não informada"}</strong></div>
+                  <div className="product-catalog-main">
+                    <div className="catalog-brand"><span>Marca</span><strong>{product.marca || "Não informada"}</strong></div>
                     <div><span>Estoque</span><strong>{product.quantidadeEstoque} un. / mín. {product.estoqueMinimo}</strong></div>
-                    <div><span>Aplicação</span><strong>{product.aplicacao || "Não informada"}</strong></div>
-                    <div><span>Custo</span><strong>{formatCurrency(product.valorCusto)}</strong></div>
                     <div><span>Varejo</span><strong>{formatCurrency(product.precoVarejo)}</strong></div>
-                    <div><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
-                    <div><span>Cadastro</span><strong>{product.dataCadastro ? new Date(product.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
+                    <div className="catalog-resale"><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
                   </div>
+                  <details className="product-secondary-details">
+                    <summary>Ver detalhes</summary>
+                    <div className="product-secondary-grid">
+                      <div><span>Código de barras</span><strong>{product.codigoBarras || "Não informado"}</strong></div>
+                      <div><span>Categoria</span><strong>{product.categoria || "Não informada"}</strong></div>
+                      <div><span>Aplicação</span><strong>{product.aplicacao || "Não informada"}</strong></div>
+                      <div><span>Custo</span><strong>{formatCurrency(product.valorCusto)}</strong></div>
+                      <div className="mobile-only-detail"><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
+                      <div><span>Cadastro</span><strong>{product.dataCadastro ? new Date(product.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
+                    </div>
+                  </details>
                   <div className="card-actions">
                     <button className="secondary-button" disabled={apiSaving} onClick={() => edit(product)}>Editar</button>
-                    <button disabled={apiSaving} className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => toggleActive(product)}>
+                    <button disabled={apiSaving} className={product.ativo ? "danger-button" : "secondary-button"} onClick={() => setConfirmation(product)}>
                       {product.ativo ? "Desativar" : "Reativar"}
                     </button>
                   </div>
@@ -404,6 +450,16 @@ export default function ProductsPage() {
           </div>
         )}
       </Panel>
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.ativo ? "Desativar produto" : "Reativar produto"}
+        message={confirmation ? `Deseja ${confirmation.ativo ? "desativar" : "reativar"} o produto ${confirmation.nome}?` : ""}
+        confirmLabel={confirmation?.ativo ? "Desativar produto" : "Reativar produto"}
+        variant={confirmation?.ativo ? "danger" : "default"}
+        processing={apiSaving}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={async () => { await toggleActive(confirmation); setConfirmation(null); }}
+      />
     </div>
   );
 }

@@ -16,11 +16,11 @@ export default function CustomerSalesHistory({ customer, sales }) {
     {sales.length === 0 ? <EmptyState title="Nenhuma compra identificada" description="As vendas vinculadas a este cliente aparecerão aqui." /> : <div className="sales-history-list">
       {sales.map((sale) => {
         const itemCount = sale.itens.reduce((total, item) => total + item.quantidade, 0);
-        return <button type="button" key={sale.id} className="sale-history-row" onClick={() => setSelectedSaleId(sale.id)}>
-          <div><strong>{sale.numeroVenda}</strong><span>{formatSaleDateTime(sale.dataHora)}</span></div>
-          <div><span>Itens</span><strong>{itemCount}</strong></div>
-          <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
-          <div><span>Total</span><strong>{formatCurrency(sale.total)}</strong></div>
+        return <button type="button" key={sale.id} className="sale-history-row customer-purchase-card" onClick={() => setSelectedSaleId(sale.id)}>
+          <div className="customer-purchase-identity"><span>Venda</span><strong>{sale.numeroVenda}</strong><small>{formatSaleDateTime(sale.dataHora)}</small></div>
+          <div className="customer-purchase-secondary"><span>Itens</span><strong>{itemCount}</strong></div>
+          <div className="customer-purchase-secondary"><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
+          <div className="customer-purchase-total"><span>Total</span><strong>{formatCurrency(sale.total)}</strong></div>
           <span className={`status-pill ${sale.status === "CONCLUIDA" ? "status-aprovado" : "status-cancelado"}`}>{SALE_STATUS_LABELS[sale.status] || sale.status}</span>
         </button>;
       })}

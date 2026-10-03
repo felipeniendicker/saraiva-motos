@@ -46,6 +46,12 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const codeInputRef = useRef(null);
+  const summaryRef = useRef(null);
+  const paymentRef = useRef(null);
+  const discountRef = useRef(null);
+  const confirmationDialogRef = useRef(null);
+  const confirmationButtonRef = useRef(null);
+  const confirmationReturnFocusRef = useRef(null);
   const finalizeLockRef = useRef(false);
   const navigate = useNavigate();
 
@@ -76,6 +82,38 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     codeInputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!confirmationOpen) return undefined;
+    document.body.classList.add("confirmation-open");
+    confirmationButtonRef.current?.focus();
+
+    function handleConfirmationKeyDown(event) {
+      if (event.key === "Escape" && !isFinalizing) {
+        setConfirmationOpen(false);
+        window.requestAnimationFrame(() => confirmationReturnFocusRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = confirmationDialogRef.current?.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])");
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleConfirmationKeyDown);
+    return () => {
+      document.body.classList.remove("confirmation-open");
+      document.removeEventListener("keydown", handleConfirmationKeyDown);
+    };
+  }, [confirmationOpen, isFinalizing]);
+
   function focusCodeInput() {
     window.requestAnimationFrame(() => codeInputRef.current?.focus());
   }
@@ -92,6 +130,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
       return;
     }
     setItems(result.items);
+    setSearch("");
     setNotice({ type: "success", message: `${product.nome} adicionado ao carrinho.` });
     focusCodeInput();
   }
@@ -135,14 +174,36 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     setNotice(null);
   }
 
-  function requestSaleConfirmation() {
-    if (items.length === 0) return showError("Adicione pelo menos um produto ao carrinho.");
-    if (!paymentMethod) return showError("Selecione uma forma de pagamento.");
+  function revealSummary(targetRef) {
+    summaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => targetRef?.current?.focus(), 250);
+  }
+
+  function requestSaleConfirmation(event) {
+    confirmationReturnFocusRef.current = event?.currentTarget || codeInputRef.current;
+    if (items.length === 0) {
+      showError("Adicione pelo menos um produto ao carrinho.");
+      focusCodeInput();
+      return;
+    }
+    if (!paymentMethod) {
+      showError("Selecione uma forma de pagamento.");
+      revealSummary(paymentRef);
+      return;
+    }
     if (!Number.isFinite(Number(discount)) || Number(discount) < 0 || Number(discount) > totals.subtotal) {
-      return showError("Revise o desconto informado.");
+      showError("Revise o desconto informado.");
+      revealSummary(discountRef);
+      return;
     }
     setNotice(null);
     setConfirmationOpen(true);
+  }
+
+  function closeConfirmation() {
+    if (isFinalizing) return;
+    setConfirmationOpen(false);
+    window.requestAnimationFrame(() => confirmationReturnFocusRef.current?.focus());
   }
 
   function updateQuantity(item, quantity) {
@@ -218,10 +279,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
 
   return (
     <div className="page-stack pdv-page">
+      <div className="pdv-layout">
+        <div className="pdv-main-column">
       <Panel
         title="Atendimento"
         description="Leia ou digite o código do produto e pressione Enter."
-        action={<span className={`price-type-badge price-${priceType.toLowerCase()}`}>{priceType}</span>}
       >
         <div className="pdv-entry-grid">
           <form className="scan-form" onSubmit={submitCode}>
@@ -258,6 +320,13 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
                 </option>
               ))}
             </select>
+            <div className="pdv-customer-status">
+              <div>
+                <span>Cliente da venda</span>
+                <strong>{selectedCustomer?.nomeRazaoSocial || "Consumidor não identificado"}</strong>
+              </div>
+              <span className={`price-type-badge price-${priceType.toLowerCase()}`}>{priceType}</span>
+            </div>
             <div className="customer-selection-footer">
               <small>{selectedCustomer ? `Preço padrão: ${priceType}` : "Consumidor não identificado · preço de varejo"}</small>
               {selectedCustomer && <button type="button" className="link-button" onClick={() => changeCustomer("")}>Remover cliente</button>}
@@ -301,16 +370,15 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
         </div>
       )}
 
-      <div className="pdv-layout">
         <Panel title={`Carrinho (${items.length})`} description="Ajuste quantidades e preços quando necessário.">
           {items.length === 0 ? (
-            <EmptyState title="Carrinho vazio" description="Adicione um produto pelo código ou pela busca manual." />
+            <div className="pdv-cart-empty"><EmptyState title="Carrinho vazio" description="Adicione um produto pelo código ou pela busca manual." /></div>
           ) : (
             <div className="cart-list">
               {items.map((item) => {
                 const product = db.products.find((candidate) => candidate.id === item.produtoId);
                 return (
-                  <article key={item.id} className="cart-item">
+                  <article key={item.id} className={`cart-item${item.precoAlteradoManualmente ? " is-negotiated" : ""}`}>
                     <div className="cart-product">
                       <strong>{item.descricaoProduto}</strong>
                       <span>{item.codigoProduto || "Sem referência"} · estoque: {product?.quantidadeEstoque ?? 0}</span>
@@ -322,6 +390,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
                         <input
                           key={`${item.id}-${item.quantidade}`}
                           type="number"
+                          inputMode="numeric"
                           min="1"
                           max={product?.quantidadeEstoque}
                           defaultValue={item.quantidade}
@@ -331,37 +400,41 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
                       </div>
                     </div>
                     <label className="cart-price">
-                      Preço praticado
+                      {item.precoAlteradoManualmente ? "Preço negociado" : "Preço praticado"}
                       <input
                         key={`${item.id}-${item.precoUnitario}`}
                         type="number"
+                        inputMode="decimal"
                         min="0"
                         step="0.01"
                         defaultValue={item.precoUnitario}
                         onBlur={(event) => updatePrice(item, event.target.value)}
                       />
-                      <small>Original: {formatCurrency(item.precoOriginal)}{item.precoAlteradoManualmente ? " · negociado" : ""}</small>
+                      <small>Preço original: {formatCurrency(item.precoOriginal)}</small>
+                      {item.precoAlteradoManualmente && <span className="negotiated-price-badge">Preço negociado</span>}
                     </label>
                     <div className="cart-subtotal"><span>Subtotal</span><strong>{formatCurrency(item.subtotal)}</strong></div>
-                    <button type="button" className="link-button" onClick={() => removeItem(item.produtoId)}>Remover</button>
+                    <button type="button" className="link-button cart-remove-button" onClick={() => removeItem(item.produtoId)}>Remover</button>
                   </article>
                 );
               })}
             </div>
           )}
         </Panel>
+        </div>
 
+        <aside className="pdv-summary-column" ref={summaryRef} id="sale-summary">
         <Panel title="Resumo da venda" description={selectedCustomer?.nomeRazaoSocial || "Consumidor não identificado"}>
           <div className="sale-summary">
             <div className="summary-line"><span>Subtotal</span><strong>{formatCurrency(totals.subtotal)}</strong></div>
             <label>
               Desconto
-              <input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} />
+              <input ref={discountRef} type="number" inputMode="decimal" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} />
             </label>
             <div className="summary-total"><span>Total</span><strong>{formatCurrency(totals.total)}</strong></div>
             <label>
               Forma de pagamento
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+              <select ref={paymentRef} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 <option value="">Selecione</option>
                 {PAYMENT_METHODS.map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}
               </select>
@@ -370,7 +443,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
               Observações
               <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
             </label>
-            <button type="button" className="primary-button finalize-sale-button" onClick={requestSaleConfirmation} disabled={isFinalizing}>{isFinalizing ? "Processando..." : "Finalizar venda"}</button>
+            <button type="button" className="primary-button finalize-sale-button" onClick={requestSaleConfirmation} disabled={isFinalizing}>{isFinalizing ? "Processando venda..." : "Finalizar venda"}</button>
             {lastSale && (
               <div className="last-sale-success">
                 <div><span>Venda concluída com sucesso</span><strong>{lastSale.numeroVenda}</strong></div>
@@ -382,22 +455,32 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
             )}
           </div>
         </Panel>
+        </aside>
+      </div>
+
+      <div className="mobile-checkout-bar" aria-label="Atalho para finalizar venda">
+        <div><span>Total</span><strong>{formatCurrency(totals.total)}</strong></div>
+        <button type="button" className="primary-button" onClick={requestSaleConfirmation} disabled={isFinalizing}>
+          {isFinalizing ? "Processando..." : "Finalizar"}
+        </button>
       </div>
 
       {confirmationOpen && (
-        <div className="sale-confirmation-overlay" role="dialog" aria-modal="true" aria-labelledby="sale-confirmation-title">
-          <div className="sale-confirmation-card">
-            <h3 id="sale-confirmation-title">Confirmar venda</h3>
-            <p>Confira os dados antes de registrar a venda.</p>
-            <dl>
-              <div><dt>Cliente</dt><dd>{confirmation.customerName}</dd></div>
-              <div><dt>Itens</dt><dd>{confirmation.itemQuantity} unidade(s)</dd></div>
-              <div><dt>Total</dt><dd>{formatCurrency(confirmation.total)}</dd></div>
-              <div><dt>Pagamento</dt><dd>{PAYMENT_METHOD_LABELS[confirmation.paymentMethod]}</dd></div>
-            </dl>
-            <div className="form-actions-pro">
-              <button type="button" className="secondary-button" onClick={() => setConfirmationOpen(false)} disabled={isFinalizing}>Voltar</button>
-              <button type="button" className="primary-button" onClick={finalizeSale} disabled={isFinalizing}>{isFinalizing ? "Processando..." : "Confirmar e finalizar"}</button>
+        <div className="sale-confirmation-overlay" role="dialog" aria-modal="true" aria-labelledby="sale-confirmation-title" aria-describedby="sale-confirmation-description">
+          <div className="sale-confirmation-card" ref={confirmationDialogRef}>
+            <div className="sale-confirmation-body">
+              <h3 id="sale-confirmation-title">Confirmar venda</h3>
+              <p id="sale-confirmation-description">Confira os dados antes de registrar a venda.</p>
+              <dl>
+                <div><dt>Cliente</dt><dd>{confirmation.customerName}</dd></div>
+                <div><dt>Itens</dt><dd>{confirmation.itemQuantity} unidade(s)</dd></div>
+                <div><dt>Total</dt><dd>{formatCurrency(confirmation.total)}</dd></div>
+                <div><dt>Pagamento</dt><dd>{PAYMENT_METHOD_LABELS[confirmation.paymentMethod]}</dd></div>
+              </dl>
+            </div>
+            <div className="form-actions-pro sale-confirmation-actions">
+              <button type="button" className="secondary-button" onClick={closeConfirmation} disabled={isFinalizing}>Voltar</button>
+              <button ref={confirmationButtonRef} type="button" className="primary-button" onClick={finalizeSale} disabled={isFinalizing}>{isFinalizing ? "Processando..." : "Confirmar e finalizar"}</button>
             </div>
           </div>
         </div>
@@ -450,13 +533,16 @@ function SalesWorkspace({ db, onFinalizeSale, onCancelSale, onLookupProductByCod
 function BackendSalesPage() {
   const [db, setDb] = useState({ products: [], customers: [], sales: [] });
   const [error, setError] = useState("");
-  async function load() {
+  const [initialLoading, setInitialLoading] = useState(true);
+  async function load(showInitialLoading = false) {
+    if (showInitialLoading) setInitialLoading(true);
     try {
       const [products, customers, sales] = await Promise.all([listProducts(), listClients(), listSales()]);
       setDb({ products, customers, sales }); setError("");
     } catch (failure) { setError(failure.message); }
+    finally { if (showInitialLoading) setInitialLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(true); }, []);
   async function finalize(draft) {
     try {
       const sale = await createSale({
@@ -471,7 +557,13 @@ function BackendSalesPage() {
     try { const sale = await cancelSaleApi(id, reason); await load(); return { ok: true, sale }; }
     catch (failure) { return { ok: false, message: failure.message }; }
   }
-  return <>{error && <div className="pdv-notice notice-error">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onLookupProductByCode={lookupProductByCode}/></>;
+  if (initialLoading) {
+    return <Panel title="Preparando o PDV" description="Carregando produtos, clientes e histórico de vendas."><div className="pdv-loading" role="status"><span className="loading-indicator" aria-hidden="true" />Aguarde um instante...</div></Panel>;
+  }
+  if (error && db.products.length === 0 && db.customers.length === 0 && db.sales.length === 0) {
+    return <Panel title="Não foi possível carregar o PDV" description={error} action={<button type="button" className="primary-button" onClick={() => load(true)}>Tentar novamente</button>}><p className="pdv-load-error" role="alert">Os dados essenciais não estão disponíveis. Nenhuma venda pode ser iniciada até que a conexão seja restabelecida.</p></Panel>;
+  }
+  return <>{error && <div className="pdv-notice notice-error" role="alert">{error}</div>}<SalesWorkspace db={db} onFinalizeSale={finalize} onCancelSale={cancel} onLookupProductByCode={lookupProductByCode}/></>;
 }
 
 export default function SalesPage() {

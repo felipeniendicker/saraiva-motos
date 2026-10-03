@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -18,6 +18,7 @@ import ReportsPage from "./pages/ReportsPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import { getCurrentUser, login } from "./services/authApi.js";
 import { AUTH_UNAUTHORIZED_EVENT, clearAuthToken, getAuthToken, setAuthToken } from "./services/authSession.js";
+import { DRAWER_ACTIONS, getNextDrawerState } from "./services/navigationDrawer.js";
 
 const navItems = [
   {
@@ -87,6 +88,8 @@ const pageMeta = {
 
 export default function App() {
   const [auth, setAuth] = useState({ status: "checking", user: null });
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const menuButtonRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -124,6 +127,28 @@ export default function App() {
     return () => globalThis.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
 
+  useEffect(() => {
+    setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!navigationOpen) return undefined;
+    document.body.classList.add("drawer-open");
+    window.requestAnimationFrame(() => document.querySelector("#main-navigation .drawer-close")?.focus());
+
+    function handleKeyDown(event) {
+      if (event.key !== "Escape") return;
+      setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE));
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.classList.remove("drawer-open");
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [navigationOpen]);
+
   async function handleLogin(email, senha) {
     const result = await login(email, senha);
     setAuthToken(result.token);
@@ -132,6 +157,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE));
     clearAuthToken();
     setAuth({ status: "unauthenticated", user: null });
     navigate("/login", { replace: true });
@@ -149,12 +175,35 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar items={navItems} />
+      <Sidebar
+        items={navItems}
+        isOpen={navigationOpen}
+        userEmail={auth.user?.email}
+        onClose={() => setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE))}
+        onDismiss={() => {
+          setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE));
+          window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+        }}
+        onLogout={handleLogout}
+      />
+      <button
+        className={`navigation-backdrop${navigationOpen ? " is-visible" : ""}`}
+        type="button"
+        aria-label="Fechar menu principal"
+        tabIndex={navigationOpen ? 0 : -1}
+        onClick={() => {
+          setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.CLOSE));
+          menuButtonRef.current?.focus();
+        }}
+      />
 
       <main className="content-shell">
         <Header
           title={meta.title}
           subtitle={meta.subtitle}
+          menuOpen={navigationOpen}
+          menuButtonRef={menuButtonRef}
+          onMenuToggle={() => setNavigationOpen((current) => getNextDrawerState(current, DRAWER_ACTIONS.TOGGLE))}
           actions={(
             <div className="session-actions">
               <span>{auth.user?.email}</span>
