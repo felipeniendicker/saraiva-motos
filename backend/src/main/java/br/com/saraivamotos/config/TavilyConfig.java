@@ -22,6 +22,9 @@ public class TavilyConfig {
             @Value("${app.tavily.api-key}") String apiKey,
             @Value("${app.tavily.connect-timeout:2500ms}") Duration connectTimeout,
             @Value("${app.tavily.read-timeout:4000ms}") Duration readTimeout) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("TAVILY_API_KEY é obrigatória quando TAVILY_ENABLED=true.");
+        }
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);

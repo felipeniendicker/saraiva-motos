@@ -18,6 +18,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
                 .toArray(String[]::new);
+        if (Arrays.asList(this.allowedOrigins).contains("*")) {
+            throw new IllegalStateException("CORS_ALLOWED_ORIGINS deve listar origens explícitas; wildcard não é permitido.");
+        }
     }
 
     @Override

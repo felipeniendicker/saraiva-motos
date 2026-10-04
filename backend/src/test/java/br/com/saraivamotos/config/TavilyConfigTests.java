@@ -31,4 +31,12 @@ class TavilyConfigTests {
         runner.withPropertyValues("app.tavily.enabled=true")
                 .run(context -> assertThat(context).hasSingleBean(TavilyProductLookupProvider.class));
     }
+
+    @Test
+    void enabledProviderRequiresApiKey() {
+        runner.withPropertyValues(
+                        "app.tavily.enabled=true",
+                        "app.tavily.api-key=")
+                .run(context -> assertThat(context).hasFailed());
+    }
 }

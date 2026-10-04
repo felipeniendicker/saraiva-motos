@@ -37,6 +37,71 @@ Não há banco operacional, dados seed ou fallback em `localStorage`. A única p
 
 Em produção, defina `VITE_API_URL` durante o build do frontend e `CORS_ALLOWED_ORIGINS` no backend com a origem HTTPS exata da interface. Não use `*`. O backend deve receber `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e um `JWT_SECRET` exclusivo por variáveis do ambiente de implantação.
 
+## Deploy / Produção
+
+A arquitetura de produção mantém três recursos separados: frontend React/Vite, backend Spring Boot e banco MySQL persistente. O repositório não depende de uma plataforma específica e nenhum segredo deve ser incluído no bundle do frontend.
+
+### Frontend
+
+O frontend fica em `demo/`. Instale exatamente as versões do lockfile e gere os arquivos estáticos:
+
+```powershell
+cd demo
+npm ci
+$env:VITE_API_URL = "https://backend.example.com"
+npm run build
+```
+
+O diretório publicado é `demo/dist`. `VITE_API_URL` deve conter a URL pública do backend, sem `/api` no final. Variáveis `VITE_*` são incorporadas ao bundle e, portanto, nunca devem conter senhas, tokens ou chaves privadas. O `HashRouter` permite servir as rotas pelo mesmo arquivo estático sem regras especiais de rewrite.
+
+### Backend
+
+O backend fica em `backend/`, exige Java 17 e utiliza o Maven Wrapper:
+
+```powershell
+cd backend
+.\mvnw.cmd clean package
+java -jar target\saraiva-motos-0.0.1-SNAPSHOT.jar
+```
+
+Em sistemas Unix, use `./mvnw`. O serviço lê `PORT` fornecida pela plataforma e usa `8080` localmente. `SERVER_PORT` continua aceito como compatibilidade secundária. Configure o healthcheck HTTP como `GET /api/health`.
+
+### Banco e migrations
+
+Use MySQL persistente e informe uma URL JDBC no formato `jdbc:mysql://HOST:PORT/DATABASE`. O Flyway aplica automaticamente as migrations de `backend/src/main/resources/db/migration`; em seguida, o Hibernate valida o schema com `ddl-auto=validate`. Não utilize geração ou atualização automática de schema em produção.
+
+### Segurança e primeiro acesso
+
+Use um `JWT_SECRET` exclusivo, aleatório e com pelo menos 32 bytes. `INITIAL_USER_EMAIL` e `INITIAL_USER_PASSWORD` são necessários somente quando o primeiro usuário ainda não existe. O bootstrap é idempotente e não sobrescreve a senha de um usuário existente. Após confirmar o primeiro acesso, remova essas duas variáveis do ambiente ou mantenha-as protegidas no gerenciador de segredos da plataforma.
+
+Configure `CORS_ALLOWED_ORIGINS` com a origem HTTPS exata do frontend. Para mais de uma origem, use uma lista separada por vírgulas, sem curingas.
+
+### Checklist de variáveis
+
+| Variável | Serviço | Obrigatória | Finalidade |
+| --- | --- | --- | --- |
+| `VITE_API_URL` | frontend/build | sim | URL pública do backend, sem `/api` |
+| `PORT` | backend | conforme plataforma | Porta HTTP fornecida pelo ambiente |
+| `DB_URL` | backend | sim | URL JDBC do MySQL persistente |
+| `DB_USERNAME` | backend | sim | Usuário do banco |
+| `DB_PASSWORD` | backend | sim | Senha do banco |
+| `JWT_SECRET` | backend | sim | Assinatura dos tokens JWT; mínimo de 32 bytes |
+| `JWT_EXPIRATION_MS` | backend | não | Duração do token; padrão de 8 horas |
+| `INITIAL_USER_EMAIL` | backend | no primeiro bootstrap | E-mail do primeiro usuário |
+| `INITIAL_USER_PASSWORD` | backend | no primeiro bootstrap | Senha inicial do primeiro usuário |
+| `CORS_ALLOWED_ORIGINS` | backend | sim | Origens permitidas do frontend |
+| `UPCITEMDB_ENABLED` | backend | não | Habilita ou desabilita o provider UPCitemdb |
+| `UPCITEMDB_BASE_URL` | backend | não | URL base do UPCitemdb |
+| `UPCITEMDB_CONNECT_TIMEOUT` | backend | não | Timeout de conexão do UPCitemdb |
+| `UPCITEMDB_READ_TIMEOUT` | backend | não | Timeout de leitura do UPCitemdb |
+| `TAVILY_ENABLED` | backend | não | Habilita ou desabilita o fallback Tavily |
+| `TAVILY_API_KEY` | backend | quando Tavily ativo | Chave privada da Tavily, somente no backend |
+| `TAVILY_BASE_URL` | backend | não | URL base da Tavily |
+| `TAVILY_CONNECT_TIMEOUT` | backend | não | Timeout de conexão da Tavily |
+| `TAVILY_READ_TIMEOUT` | backend | não | Timeout de leitura da Tavily |
+
+O arquivo `.env.example` contém apenas placeholders de documentação. Copie os nomes necessários para o gerenciador de variáveis da plataforma; não versione arquivos `.env` preenchidos.
+
 ## Autenticação
 
 O acesso ao modo backend exige e-mail e senha. `POST /api/auth/login` e `GET /api/health` são públicos; `/api/auth/me` e todos os módulos operacionais exigem `Authorization: Bearer <token>`. O token é stateless, expira por padrão após 8 horas e não possui refresh token. O logout remove o token no frontend.
