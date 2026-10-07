@@ -1743,8 +1743,9 @@ textarea:disabled {
 }
 
 .receipt-item > small {
-  color: #333;
+  color: #111;
   font-size: 10px;
+  font-weight: 600;
 }
 
 .receipt-item > div,
@@ -1752,6 +1753,18 @@ textarea:disabled {
   display: flex;
   gap: 0.5rem;
   justify-content: space-between;
+}
+
+.receipt-item > div > span,
+.receipt-totals p > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.receipt-item > div > strong,
+.receipt-totals p > strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .receipt-total {
@@ -1771,6 +1784,12 @@ textarea:disabled {
 .receipt-footer strong,
 .receipt-footer small {
   display: block;
+}
+
+.receipt-totals,
+.receipt-footer {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .receipt-footer small {
@@ -3292,7 +3311,7 @@ body.shared-dialog-open {
     font-size: 10pt;
     margin: 0;
     max-width: 76mm;
-    padding: 0;
+    padding: 0 1mm 4mm;
     width: 76mm;
   }
 }

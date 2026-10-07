@@ -21,7 +21,7 @@ export default function SaleReceipt({ sale, customers = [] }) {
     <article className="sale-receipt sale-receipt-80mm">
       <header className="receipt-header">
         <h1>SARAIVA MOTOS</h1>
-        <strong>COMPROVANTE NÃO FISCAL</strong>
+        <strong>COMPROVANTE</strong>
         {isCancelled && <div className="receipt-cancelled">*** VENDA CANCELADA ***</div>}
       </header>
 
@@ -69,7 +69,7 @@ export default function SaleReceipt({ sale, customers = [] }) {
       <footer className="receipt-footer">
         <p>Obrigado pela preferência!</p>
         <strong>SARAIVA MOTOS</strong>
-        <small>*** COMPROVANTE NÃO FISCAL ***</small>
+        <small>*** COMPROVANTE ***</small>
       </footer>
     </article>
   );
