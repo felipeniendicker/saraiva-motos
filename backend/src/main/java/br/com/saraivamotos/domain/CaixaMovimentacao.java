@@ -12,8 +12,8 @@ public class CaixaMovimentacao {
     @Column(nullable=false, precision=15, scale=2) private BigDecimal valor;
     @Column(nullable=false, length=255) private String descricao;
     @Column(name="venda_id") private Long vendaId;
-    @Column(name="chave_idempotencia", nullable=false, unique=true, length=36) private String chaveIdempotencia;
-    @Column(name="request_hash", nullable=false, length=64) private String requestHash;
+    @Column(name="chave_idempotencia", nullable=false, unique=true, length=36, columnDefinition="CHAR(36)") private String chaveIdempotencia;
+    @Column(name="request_hash", nullable=false, length=64, columnDefinition="CHAR(64)") private String requestHash;
     @Column(name="operador_id", nullable=false) private Long operadorId;
     @Column(name="operador_email", nullable=false, length=254) private String operadorEmail;
     @Column(name="data_hora", nullable=false) private LocalDateTime dataHora;

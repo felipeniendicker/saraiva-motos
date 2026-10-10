@@ -11,13 +11,13 @@ import jakarta.persistence.Table;
 @Table(name = "operacao_idempotente")
 public class OperacaoIdempotente {
     @Id
-    @Column(length = 36)
+    @Column(length = 36, columnDefinition = "CHAR(36)")
     private String chave;
 
     @Column(nullable = false, length = 30)
     private String tipo;
 
-    @Column(name = "request_hash", nullable = false, length = 64)
+    @Column(name = "request_hash", nullable = false, length = 64, columnDefinition = "CHAR(64)")
     private String requestHash;
 
     @Column(name = "venda_id")

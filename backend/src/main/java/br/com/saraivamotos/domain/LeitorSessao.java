@@ -3,8 +3,8 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 @Entity @Table(name="leitor_sessao")
 public class LeitorSessao {
- @Id @Column(length=36) private String id;
- @Column(name="token_hash",nullable=false,unique=true,length=64) private String tokenHash;
+ @Id @Column(length=36,columnDefinition="CHAR(36)") private String id;
+ @Column(name="token_hash",nullable=false,unique=true,length=64,columnDefinition="CHAR(64)") private String tokenHash;
  @Column(name="operador_id",nullable=false) private Long operadorId;
  @Column(name="operador_email",nullable=false,length=254) private String operadorEmail;
  @Column(nullable=false,length=20) private String status;

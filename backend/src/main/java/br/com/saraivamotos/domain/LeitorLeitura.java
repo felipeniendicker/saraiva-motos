@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 @Entity @Table(name="leitor_leitura",uniqueConstraints=@UniqueConstraint(columnNames={"sessao_id","evento_id"}))
 public class LeitorLeitura {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
- @Column(name="sessao_id",nullable=false,length=36) private String sessaoId;
- @Column(name="evento_id",nullable=false,length=36) private String eventoId;
+ @Column(name="sessao_id",nullable=false,length=36,columnDefinition="CHAR(36)") private String sessaoId;
+ @Column(name="evento_id",nullable=false,length=36,columnDefinition="CHAR(36)") private String eventoId;
  @Column(nullable=false,length=14) private String codigo;
  @Column(name="data_hora",nullable=false) private LocalDateTime dataHora;
  @Column(name="data_consumo") private LocalDateTime dataConsumo;
