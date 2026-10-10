@@ -23,7 +23,7 @@ No Railway, configure o Root Directory como `/backend` e o caminho do arquivo de
 
 ### Frontend
 
-O arquivo `demo/railway.json` executa `npm ci && npm run build` e `npm start`. O start usa o servidor estatico `serve`, escuta `0.0.0.0:$PORT` e possui fallback SPA. Nao usa `vite preview`.
+O Railpack instala as dependencias em sua etapa propria; `demo/railway.json` executa apenas `npm run build` e depois `npm start`. O start usa o servidor estatico `serve`, escuta `0.0.0.0:$PORT` e possui fallback SPA. Nao usa `vite preview`.
 
 Configure o Root Directory como `/demo`, o config path como `/demo/railway.json` e `VITE_API_URL` com a URL HTTPS publica do backend, sem `/api` no final. Essa variavel e incorporada durante o build; alterá-la exige novo build do frontend.
 
