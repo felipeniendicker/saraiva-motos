@@ -3,20 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-"scripts": {
-  "dev": "vite",
-  "build": "node ./node_modules/vite/bin/vite.js build",
-  "test": "node --test --test-isolation=none src/services/*.test.js",
-  "test:sales": "node --test --test-isolation=none src/services/sales.test.js",
-  "preview": "node ./node_modules/vite/bin/vite.js preview"
-
-
+  "scripts": {
+    "dev": "vite",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "start": "node scripts/start-production.mjs",
+    "test": "node --test --test-isolation=none src/services/*.test.js",
+    "test:sales": "node --test --test-isolation=none src/services/sales.test.js",
+    "test:pwa-update": "node scripts/test-pwa-update.mjs",
+    "preview": "node ./node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
-    "vite": "^7.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.0.0"
+    "react-router-dom": "^7.0.0",
+    "serve": "^14.2.5",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "vite-plugin-pwa": "^2.0.0"
   }
 }

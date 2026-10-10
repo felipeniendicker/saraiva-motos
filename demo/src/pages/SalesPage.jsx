@@ -9,6 +9,7 @@ import {
   CUSTOMER_TYPE_LABELS,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
+  PRICE_TYPE_LABELS,
   getDefaultPriceType,
   getProductPrice
 } from "../data/domain.js";
@@ -29,6 +30,10 @@ import { lookupProductByCode, listProducts } from "../services/productsApi.js";
 import { listClients } from "../services/clientsApi.js";
 import { cancelSaleApi, createSale, listSales } from "../services/salesApi.js";
 import { interpretSalesLookupResponse } from "../services/productLookup.js";
+import { getOperationAttempt } from "../services/operationAttempt.js";
+import { setAppUpdateBlocked } from "../services/updateSafety.js";
+import { saveThenRefresh } from "../services/mutationFlow.js";
+import RemoteReaderConnect from "../components/RemoteReaderConnect.jsx";
 
 function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [code, setCode] = useState("");
@@ -81,6 +86,12 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   useEffect(() => {
     codeInputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setAppUpdateBlocked("sales-cart", items.length > 0 || isFinalizing);
+  }, [items.length, isFinalizing]);
+
+  useEffect(() => () => setAppUpdateBlocked("sales-cart", false), []);
 
   useEffect(() => {
     if (!confirmationOpen) return undefined;
@@ -191,8 +202,8 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
       revealSummary(paymentRef);
       return;
     }
-    if (!Number.isFinite(Number(discount)) || Number(discount) < 0 || Number(discount) > totals.subtotal) {
-      showError("Revise o desconto informado.");
+    if (!Number.isFinite(Number(discount)) || Number(discount) < 0 || Number(discount) > 100) {
+      showError("Informe um desconto entre 0% e 100%.");
       revealSummary(discountRef);
       return;
     }
@@ -211,6 +222,9 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     if (!product) return;
     const result = changeCartItemQuantity(items, product, quantity);
     if (!result.ok) {
+      if (result.priceChanged && result.products) {
+        setItems((current) => repriceCart(current, result.products, priceType));
+      }
       showError(result.message);
       return;
     }
@@ -242,7 +256,8 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
         clienteId: customerId || null,
         tipoPrecoUtilizado: priceType,
         itens: items,
-        desconto: Number(discount),
+        descontoPercentual: Number(discount),
+        desconto: totals.desconto,
         formaPagamento: paymentMethod,
         observacoes: notes
       }));
@@ -267,7 +282,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     setNotes("");
     setSearch("");
     setConfirmationOpen(false);
-    setNotice({ type: "success", message: `Venda ${result.sale.numeroVenda} concluída com sucesso.` });
+    setReceiptSale(result.sale);
+    setNotice({
+      type: result.refreshWarning ? "warning" : "success",
+      message: result.refreshWarning || `Venda ${result.sale.numeroVenda} concluída com sucesso.`
+    });
     focusCodeInput();
   }
 
@@ -302,6 +321,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
               />
               <button className="primary-button" disabled={lookupLoading}>{lookupLoading ? "Buscando..." : "Adicionar"}</button>
             </div>
+            <RemoteReaderConnect onCode={performCodeLookup} />
           </form>
 
           <div className="pdv-customer-field">
@@ -325,10 +345,10 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
                 <span>Cliente da venda</span>
                 <strong>{selectedCustomer?.nomeRazaoSocial || "Consumidor não identificado"}</strong>
               </div>
-              <span className={`price-type-badge price-${priceType.toLowerCase()}`}>{priceType}</span>
+              <span className={`price-type-badge price-${priceType.toLowerCase()}`}>{PRICE_TYPE_LABELS[priceType]}</span>
             </div>
             <div className="customer-selection-footer">
-              <small>{selectedCustomer ? `Preço padrão: ${priceType}` : "Consumidor não identificado · preço de varejo"}</small>
+              <small>{selectedCustomer ? `Preço padrão: ${PRICE_TYPE_LABELS[priceType]}` : "Consumidor não identificado · preço de Venda"}</small>
               {selectedCustomer && <button type="button" className="link-button" onClick={() => changeCustomer("")}>Remover cliente</button>}
             </div>
           </div>
@@ -428,9 +448,10 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
           <div className="sale-summary">
             <div className="summary-line"><span>Subtotal</span><strong>{formatCurrency(totals.subtotal)}</strong></div>
             <label>
-              Desconto
-              <input ref={discountRef} type="number" inputMode="decimal" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} />
+              Desconto (%)
+              <input ref={discountRef} type="number" inputMode="decimal" min="0" max="100" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} />
             </label>
+            <div className="summary-line"><span>Valor descontado ({Number(discount || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)</span><strong>{formatCurrency(totals.desconto)}</strong></div>
             <div className="summary-total"><span>Total</span><strong>{formatCurrency(totals.total)}</strong></div>
             <label>
               Forma de pagamento
@@ -534,24 +555,49 @@ function BackendSalesPage() {
   const [db, setDb] = useState({ products: [], customers: [], sales: [] });
   const [error, setError] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
+  const saleAttemptRef = useRef(null);
   async function load(showInitialLoading = false) {
     if (showInitialLoading) setInitialLoading(true);
     try {
       const [products, customers, sales] = await Promise.all([listProducts(), listClients(), listSales()]);
-      setDb({ products, customers, sales }); setError("");
-    } catch (failure) { setError(failure.message); }
+      setDb({ products, customers, sales }); setError(""); return true;
+    } catch (failure) { setError(failure.message); return false; }
     finally { if (showInitialLoading) setInitialLoading(false); }
   }
   useEffect(() => { load(true); }, []);
   async function finalize(draft) {
+    const payload = {
+      clienteId: draft.clienteId ? Number(draft.clienteId) : null,
+      itens: draft.itens.map((item) => ({
+        produtoId: item.produtoId,
+        quantidade: item.quantidade,
+        precoUnitario: item.precoUnitario,
+        precoOriginal: item.precoOriginal,
+        precoAlteradoManualmente: item.precoAlteradoManualmente
+      })),
+      desconto: draft.desconto,
+      descontoPercentual: draft.descontoPercentual,
+      formaPagamento: draft.formaPagamento,
+      observacoes: draft.observacoes
+    };
+    const attempt = getOperationAttempt(saleAttemptRef.current, payload);
+    saleAttemptRef.current = attempt;
     try {
-      const sale = await createSale({
-        clienteId: draft.clienteId ? Number(draft.clienteId) : null,
-        itens: draft.itens.map((item) => ({ produtoId: item.produtoId, quantidade: item.quantidade, precoUnitario: item.precoUnitario })),
-        desconto: draft.desconto, formaPagamento: draft.formaPagamento, observacoes: draft.observacoes
-      });
-      await load(); return { ok: true, sale };
-    } catch (failure) { return { ok: false, message: failure.message }; }
+      const saved = await saveThenRefresh(
+        () => createSale(payload, attempt.key),
+        async () => { if (!await load()) throw new Error("Não foi possível atualizar a tela."); }
+      );
+      const sale = saved.value;
+      saleAttemptRef.current = null;
+      return { ok: true, sale, refreshWarning: saved.refreshError ? "Venda salva; a atualização da tela falhou." : null };
+    } catch (failure) {
+      if (failure.code === "PRECO_DESATUALIZADO") {
+        const products = await listProducts().catch(() => null);
+        if (products) setDb((current) => ({ ...current, products }));
+        return { ok: false, priceChanged: true, products, message: failure.message };
+      }
+      return { ok: false, message: failure.message };
+    }
   }
   async function cancel(id, reason) {
     try { const sale = await cancelSaleApi(id, reason); await load(); return { ok: true, sale }; }

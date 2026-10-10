@@ -6,6 +6,11 @@ import br.com.saraivamotos.repository.VendaRepository;
 import br.com.saraivamotos.repository.ClienteRepository;
 import br.com.saraivamotos.repository.MotoRepository;
 import br.com.saraivamotos.repository.UsuarioRepository;
+import br.com.saraivamotos.repository.OperacaoIdempotenteRepository;
+import br.com.saraivamotos.repository.CaixaRepository;
+import br.com.saraivamotos.repository.CaixaMovimentacaoRepository;
+import br.com.saraivamotos.repository.LeitorSessaoRepository;
+import br.com.saraivamotos.repository.LeitorLeituraRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,5 +51,10 @@ class SaraivaMotosApplicationTests {
         @Bean ClienteRepository clienteRepository() { return mock(ClienteRepository.class); }
         @Bean MotoRepository motoRepository() { return mock(MotoRepository.class); }
         @Bean UsuarioRepository usuarioRepository() { return mock(UsuarioRepository.class); }
+        @Bean OperacaoIdempotenteRepository operacaoIdempotenteRepository() { return mock(OperacaoIdempotenteRepository.class); }
+        @Bean CaixaRepository caixaRepository() { return mock(CaixaRepository.class); }
+        @Bean CaixaMovimentacaoRepository caixaMovimentacaoRepository() { return mock(CaixaMovimentacaoRepository.class); }
+        @Bean LeitorSessaoRepository leitorSessaoRepository() { return mock(LeitorSessaoRepository.class); }
+        @Bean LeitorLeituraRepository leitorLeituraRepository() { return mock(LeitorLeituraRepository.class); }
     }
 }

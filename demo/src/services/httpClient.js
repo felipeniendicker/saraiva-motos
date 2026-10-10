@@ -22,7 +22,9 @@ export async function apiRequest(path, options = {}, config = {}) {
 
   if (!response.ok) {
     if (response.status === 401 && handleUnauthorized) notifyUnauthorized();
-    throw new errorClass(body?.message || defaultMessage, response.status);
+    const error = new errorClass(body?.message || defaultMessage, response.status);
+    error.code = body?.code || null;
+    throw error;
   }
   return body;
 }

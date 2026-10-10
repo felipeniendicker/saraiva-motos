@@ -6,6 +6,7 @@ import StatCard from "../components/StatCard.jsx";
 import { IconCustomers, IconOrder, IconRevenue, IconSpark } from "../components/icons.jsx";
 import { getDashboard } from "../services/dashboardApi.js";
 import { formatCurrency, formatDateTime } from "../utils/formatters.js";
+import CashControl from "../components/CashControl.jsx";
 
 const MOVEMENT_LABELS = {
   ENTRADA: "Entrada",
@@ -25,6 +26,7 @@ function DashboardView({ data }) {
   const lowStock = data.itensEstoqueBaixo || [];
 
   return <div className="page-grid dashboard-page">
+    <CashControl />
     <div className="stats-grid dashboard-stats">
       <StatCard icon={<IconOrder />} label="Vendas concluídas" value={data.vendasConcluidas} hint={`${formatCurrency(data.faturamento)} em vendas válidas`} tone="orange" />
       <StatCard icon={<IconRevenue />} label="Estoque baixo" value={data.produtosEstoqueBaixo} hint="Produtos que precisam de atenção" tone={data.produtosEstoqueBaixo > 0 ? "red" : "default"} />

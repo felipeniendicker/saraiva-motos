@@ -3,7 +3,7 @@ import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import CustomerSalesHistory from "../components/CustomerSalesHistory.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
-import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, getDefaultPriceType } from "../data/domain.js";
+import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, PRICE_TYPE_LABELS, getDefaultPriceType } from "../data/domain.js";
 import { formatPhone } from "../utils/formatters.js";
 import * as clientsApi from "../services/clientsApi.js";
 import { listSales } from "../services/salesApi.js";
@@ -187,7 +187,7 @@ function BackendCustomersPage() {
                   const priceType = getDefaultPriceType(customer);
                   return <article className={`customer-list-card${selected?.id === customer.id ? " is-selected" : ""}`} key={customer.id}>
                     <div className="customer-card-heading"><div><h4>{customer.nomeRazaoSocial}</h4><p>{customer.telefone || "Telefone não informado"}</p></div><span className={`status-pill ${customer.ativo ? "status-aprovado" : "status-cancelado"}`}>{customer.ativo ? "Ativo" : "Inativo"}</span></div>
-                    <div className="customer-card-badges"><span className="customer-type-badge">{CUSTOMER_TYPE_LABELS[customer.tipoCliente]}</span><span className={`price-type-badge price-${priceType.toLowerCase()}`}>Preço padrão: {priceType}</span></div>
+                    <div className="customer-card-badges"><span className="customer-type-badge">{CUSTOMER_TYPE_LABELS[customer.tipoCliente]}</span><span className={`price-type-badge price-${priceType.toLowerCase()}`}>Preço padrão: {PRICE_TYPE_LABELS[priceType]}</span></div>
                     {customer.cpfCnpj && <p className="customer-document"><span>CPF / CNPJ</span><strong>{customer.cpfCnpj}</strong></p>}
                     <div className="customer-card-actions"><button type="button" className="primary-button" disabled={saving} onClick={() => openCustomer(customer)}>Abrir</button><button type="button" className="secondary-button" disabled={saving} onClick={() => edit(customer)}>Editar</button><button type="button" disabled={saving} className={customer.ativo ? "customer-destructive-action" : "secondary-button"} onClick={() => requestToggle(customer)}>{customer.ativo ? "Desativar" : "Reativar"}</button></div>
                   </article>;
@@ -200,7 +200,7 @@ function BackendCustomersPage() {
           <button type="button" className="secondary-button customer-profile-back" onClick={closeSelected}>Voltar aos clientes</button>
           <div className="customer-profile-header">
             <div><span className="eyebrow">Cliente selecionado</span><h3>{selected.nomeRazaoSocial}</h3><p>{selected.telefone || "Telefone não informado"}</p></div>
-            <div className="customer-profile-badges"><span className="customer-type-badge">{CUSTOMER_TYPE_LABELS[selected.tipoCliente]}</span><span className={`status-pill ${selected.ativo ? "status-aprovado" : "status-cancelado"}`}>{selected.ativo ? "Ativo" : "Inativo"}</span><span className={`price-type-badge price-${getDefaultPriceType(selected).toLowerCase()}`}>Preço padrão: {getDefaultPriceType(selected)}</span></div>
+            <div className="customer-profile-badges"><span className="customer-type-badge">{CUSTOMER_TYPE_LABELS[selected.tipoCliente]}</span><span className={`status-pill ${selected.ativo ? "status-aprovado" : "status-cancelado"}`}>{selected.ativo ? "Ativo" : "Inativo"}</span><span className={`price-type-badge price-${getDefaultPriceType(selected).toLowerCase()}`}>Preço padrão: {PRICE_TYPE_LABELS[getDefaultPriceType(selected)]}</span></div>
           </div>
           <div className="customer-profile-tabs" role="tablist" aria-label="Seções do perfil do cliente">
             {CUSTOMER_PROFILE_TABS.map((tab) => <button type="button" role="tab" id={`customer-tab-${tab}`} aria-selected={activeTab === tab} aria-controls={`customer-panel-${tab}`} tabIndex={activeTab === tab ? 0 : -1} className={activeTab === tab ? "is-active" : ""} key={tab} onClick={() => setActiveTab(tab)} onKeyDown={handleTabKeyDown}>{PROFILE_TAB_LABELS[tab]}</button>)}

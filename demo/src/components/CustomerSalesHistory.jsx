@@ -4,6 +4,7 @@ import SaleDetailsContent, { formatSaleDateTime } from "./SaleDetailsContent.jsx
 import SaleReceiptPreview from "./SaleReceiptPreview.jsx";
 import { PAYMENT_METHOD_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
 import { formatCurrency } from "../utils/formatters.js";
+import { saveSaleReceiptPdf } from "../services/receiptPdf.js";
 
 export default function CustomerSalesHistory({ customer, sales }) {
   const [selectedSaleId, setSelectedSaleId] = useState(null);
@@ -29,7 +30,10 @@ export default function CustomerSalesHistory({ customer, sales }) {
     {selectedSale && <div className="customer-sale-details">
       <div className="section-heading-inline"><div><h3>Venda {selectedSale.numeroVenda}</h3><p>{formatSaleDateTime(selectedSale.dataHora)}</p></div><button type="button" className="secondary-button" onClick={() => setSelectedSaleId(null)}>Fechar detalhes</button></div>
       <SaleDetailsContent sale={selectedSale} customers={[customer]} />
-      <div className="form-actions-pro"><button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button></div>
+      <div className="form-actions-pro">
+        <button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button>
+        <button type="button" className="secondary-button" onClick={() => saveSaleReceiptPdf(selectedSale, [customer])}>Salvar PDF</button>
+      </div>
     </div>}
 
     {receiptSale && <SaleReceiptPreview sale={receiptSale} customers={[customer]} onClose={() => setReceiptSaleId(null)} />}

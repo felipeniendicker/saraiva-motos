@@ -6,10 +6,29 @@ const fromCents = (value) => value / 100;
 const roundMoney = (value) => fromCents(toCents(value));
 const withSubtotal = (item) => ({ ...item, subtotal: fromCents(toCents(item.precoUnitario) * item.quantidade) });
 
-export function calculateSaleTotals(items, discount = 0) {
+export function calculateSaleTotals(items, discountPercentage = 0) {
   const subtotalCents = items.reduce((total, item) => total + toCents(item.precoUnitario) * Number(item.quantidade), 0);
-  const discountCents = toCents(discount || 0);
-  return { subtotal: fromCents(subtotalCents), desconto: fromCents(discountCents), total: fromCents(Math.max(0, subtotalCents - discountCents)) };
+  const percentage = Number(discountPercentage || 0);
+  const discountCents = Number.isFinite(percentage)
+    ? Math.round(subtotalCents * Math.min(100, Math.max(0, percentage)) / 100)
+    : 0;
+  return {
+    subtotal: fromCents(subtotalCents),
+    descontoPercentual: percentage,
+    desconto: fromCents(discountCents),
+    total: fromCents(Math.max(0, subtotalCents - discountCents))
+  };
+}
+
+export function getSaleDiscountPercentage(sale) {
+  const stored = Number(sale?.descontoPercentual);
+  if (sale?.descontoPercentual !== null && sale?.descontoPercentual !== undefined && Number.isFinite(stored)) {
+    return stored;
+  }
+  const subtotal = Number(sale?.subtotal);
+  const discount = Number(sale?.desconto);
+  if (!Number.isFinite(subtotal) || subtotal <= 0 || !Number.isFinite(discount)) return 0;
+  return Math.round((discount / subtotal) * 10000) / 100;
 }
 
 export function findProductByCode(products, code) {
@@ -101,7 +120,7 @@ export function getSaleReceiptData(sale, customers = []) {
     clienteTipo: sale.clienteTipo || currentCustomer?.tipoCliente || null,
     tipoPrecoUtilizado: sale.tipoPrecoUtilizado, formaPagamento: sale.formaPagamento,
     itens: sale.itens.map((item) => ({ id: item.id, descricaoProduto: item.descricaoProduto, codigoProduto: item.codigoProduto, quantidade: item.quantidade, precoUnitario: item.precoUnitario, subtotal: item.subtotal })),
-    subtotal: sale.subtotal, desconto: sale.desconto, total: sale.total, observacoes: sale.observacoes,
+    subtotal: sale.subtotal, desconto: sale.desconto, descontoPercentual: getSaleDiscountPercentage(sale), total: sale.total, observacoes: sale.observacoes,
     dataCancelamento: sale.dataCancelamento || null, motivoCancelamento: sale.motivoCancelamento || ""
   };
 }

@@ -6,6 +6,7 @@
 # Java / Maven
 **/target/
 *.class
+backend/scripts/backups/
 
 # Frontend
 demo/node_modules/

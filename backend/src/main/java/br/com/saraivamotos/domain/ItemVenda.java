@@ -31,6 +31,8 @@ public class ItemVenda {
     private BigDecimal precoOriginal;
     @Column(name = "preco_unitario", nullable = false, precision = 15, scale = 2)
     private BigDecimal precoUnitario;
+    @Column(name = "preco_alterado_manualmente", nullable = false)
+    private Boolean precoAlteradoManualmente = false;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal subtotal;
 
@@ -50,6 +52,8 @@ public class ItemVenda {
     public void setPrecoOriginal(BigDecimal precoOriginal) { this.precoOriginal = precoOriginal; }
     public BigDecimal getPrecoUnitario() { return precoUnitario; }
     public void setPrecoUnitario(BigDecimal precoUnitario) { this.precoUnitario = precoUnitario; }
+    public Boolean getPrecoAlteradoManualmente() { return precoAlteradoManualmente; }
+    public void setPrecoAlteradoManualmente(Boolean precoAlteradoManualmente) { this.precoAlteradoManualmente = precoAlteradoManualmente; }
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
 }

@@ -5,6 +5,7 @@ import SaleReceiptPreview from "./SaleReceiptPreview.jsx";
 import SaleDetailsContent, { formatSaleDateTime } from "./SaleDetailsContent.jsx";
 import {
   PAYMENT_METHOD_LABELS,
+  PRICE_TYPE_LABELS,
   SALE_STATUS_LABELS
 } from "../data/domain.js";
 import {
@@ -12,6 +13,7 @@ import {
   getSaleCustomerLabel
 } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
+import { saveSaleReceiptPdf } from "../services/receiptPdf.js";
 
 const initialFilters = {
   search: "",
@@ -109,7 +111,7 @@ export default function SalesHistory({ db, onCancelSale }) {
               return (
                 <button type="button" key={sale.id} className="sale-history-row" onClick={() => openSale(sale.id)}>
                   <div><strong>{sale.numeroVenda}</strong><span>{formatSaleDateTime(sale.dataHora)}</span></div>
-                  <div><strong>{getSaleCustomerLabel(sale, db.customers)}</strong><span>{sale.tipoPrecoUtilizado}</span></div>
+                  <div><strong>{getSaleCustomerLabel(sale, db.customers)}</strong><span>{PRICE_TYPE_LABELS[sale.tipoPrecoUtilizado] || sale.tipoPrecoUtilizado}</span></div>
                   <div><span>Itens</span><strong>{itemCount}</strong></div>
                   <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
                   <div><span>Total</span><strong>{formatCurrency(sale.total)}</strong></div>
@@ -133,6 +135,7 @@ export default function SalesHistory({ db, onCancelSale }) {
 
           <div className="form-actions-pro sale-detail-actions">
             <button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button>
+            <button type="button" className="secondary-button" onClick={() => saveSaleReceiptPdf(selectedSale, db.customers)}>Salvar PDF</button>
           </div>
 
           {selectedSale.status !== "CANCELADA" && (showCancellation ? (

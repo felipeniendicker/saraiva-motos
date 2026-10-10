@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Header from "./components/Header.jsx";
+import PwaControls from "./components/PwaControls.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import {
   IconCustomers,
@@ -16,6 +17,7 @@ import InventoryPage from "./pages/InventoryPage.jsx";
 import SalesPage from "./pages/SalesPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import RemoteScannerPage from "./pages/RemoteScannerPage.jsx";
 import { getCurrentUser, login } from "./services/authApi.js";
 import { AUTH_UNAUTHORIZED_EVENT, clearAuthToken, getAuthToken, setAuthToken } from "./services/authSession.js";
 import { DRAWER_ACTIONS, getNextDrawerState } from "./services/navigationDrawer.js";
@@ -94,6 +96,10 @@ export default function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (location.pathname.startsWith("/leitor/")) {
+      setAuth({ status: "remote", user: null });
+      return undefined;
+    }
     function handleUnauthorized() {
       setAuth({ status: "unauthenticated", user: null, message: "Sua sessão expirou. Entre novamente para continuar." });
       navigate("/login", { replace: true });
@@ -163,17 +169,22 @@ export default function App() {
     navigate("/login", { replace: true });
   }
 
+  if (location.pathname.startsWith("/leitor/")) {
+    return <Routes><Route path="/leitor/:token" element={<RemoteScannerPage />} /></Routes>;
+  }
+
   if (auth.status === "checking") {
-    return <main className="login-shell"><section className="login-card"><p>Validando sessão...</p></section></main>;
+    return <><PwaControls /><main className="login-shell"><section className="login-card"><p>Validando sessão...</p></section></main></>;
   }
 
   if (auth.status !== "authenticated") {
-    return <LoginPage onLogin={handleLogin} sessionMessage={auth.message} />;
+    return <><PwaControls /><LoginPage onLogin={handleLogin} sessionMessage={auth.message} /></>;
   }
 
   const meta = pageMeta[location.pathname] || pageMeta["/dashboard"];
 
-  return (
+  return <>
+    <PwaControls />
     <div className="app-shell">
       <Sidebar
         items={navItems}
@@ -230,5 +241,5 @@ export default function App() {
         </div>
       </main>
     </div>
-  );
+  </>;
 }

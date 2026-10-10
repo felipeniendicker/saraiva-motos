@@ -12,16 +12,24 @@ async function request(path, options = {}) {
   return apiRequest(path, options, { errorClass: StockApiError, defaultMessage: "Não foi possível concluir a operação de estoque." });
 }
 
-export function addStock(data) {
-  return request("/api/estoque/entrada", { method: "POST", body: JSON.stringify(data) });
+function mutation(path, data, idempotencyKey) {
+  return request(path, {
+    method: "POST",
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+    body: JSON.stringify(data)
+  });
 }
 
-export function adjustStock(data) {
-  return request("/api/estoque/ajuste", { method: "POST", body: JSON.stringify(data) });
+export function addStock(data, idempotencyKey) {
+  return mutation("/api/estoque/entrada", data, idempotencyKey);
 }
 
-export function removeStock(data) {
-  return request("/api/estoque/saida", { method: "POST", body: JSON.stringify(data) });
+export function adjustStock(data, idempotencyKey) {
+  return mutation("/api/estoque/ajuste", data, idempotencyKey);
+}
+
+export function removeStock(data, idempotencyKey) {
+  return mutation("/api/estoque/saida", data, idempotencyKey);
 }
 
 export function listStockMovements({ productId } = {}) {

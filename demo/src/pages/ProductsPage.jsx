@@ -275,7 +275,7 @@ export default function ProductsPage() {
             </div>
             <div className="lookup-product-data">
               <span>Estoque <strong>{lookupResult.product.quantidadeEstoque} un.</strong></span>
-              <span>Varejo <strong>{formatCurrency(lookupResult.product.precoVarejo)}</strong></span>
+              <span>Venda <strong>{formatCurrency(lookupResult.product.precoVarejo)}</strong></span>
               <span>Revenda <strong>{formatCurrency(lookupResult.product.precoRevenda)}</strong></span>
             </div>
             <button type="button" className="secondary-button" onClick={() => edit(lookupResult.product)}>Abrir produto</button>
@@ -360,11 +360,11 @@ export default function ProductsPage() {
             <input type="number" inputMode="decimal" min="0" step="0.01" value={form.valorCusto} onChange={(event) => update("valorCusto", event.target.value)} required />
           </label>
           <label>
-            Preço de varejo
+            Preço de Venda
             <input type="number" inputMode="decimal" min="0" step="0.01" value={form.precoVarejo} onChange={(event) => update("precoVarejo", event.target.value)} required />
           </label>
           <label>
-            Preço de revenda
+            Preço de Revenda
             <input type="number" inputMode="decimal" min="0" step="0.01" value={form.precoRevenda} onChange={(event) => update("precoRevenda", event.target.value)} required />
           </label>
           </fieldset>
@@ -424,7 +424,7 @@ export default function ProductsPage() {
                   <div className="product-catalog-main">
                     <div className="catalog-brand"><span>Marca</span><strong>{product.marca || "Não informada"}</strong></div>
                     <div><span>Estoque</span><strong>{product.quantidadeEstoque} un. / mín. {product.estoqueMinimo}</strong></div>
-                    <div><span>Varejo</span><strong>{formatCurrency(product.precoVarejo)}</strong></div>
+                    <div><span>Venda</span><strong>{formatCurrency(product.precoVarejo)}</strong></div>
                     <div className="catalog-resale"><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
                   </div>
                   <details className="product-secondary-details">

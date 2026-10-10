@@ -21,6 +21,7 @@ public record VendaResponse(
         List<ItemVendaResponse> itens,
         BigDecimal subtotal,
         BigDecimal desconto,
+        BigDecimal descontoPercentual,
         BigDecimal total,
         FormaPagamento formaPagamento,
         String observacoes,
@@ -31,7 +32,7 @@ public record VendaResponse(
         return new VendaResponse(venda.getId(), venda.getNumeroVenda(), venda.getDataHora(), venda.getStatus(),
                 venda.getClienteId(), venda.getClienteNome(), venda.getClienteTipo(), venda.getTipoPrecoUtilizado(),
                 venda.getItens().stream().map(ItemVendaResponse::from).toList(), venda.getSubtotal(),
-                venda.getDesconto(), venda.getTotal(), venda.getFormaPagamento(), venda.getObservacoes(),
+                venda.getDesconto(), venda.getDescontoPercentual(), venda.getTotal(), venda.getFormaPagamento(), venda.getObservacoes(),
                 venda.getDataCancelamento(), venda.getMotivoCancelamento());
     }
 }

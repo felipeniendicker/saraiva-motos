@@ -71,6 +71,23 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
     }
 
+    @ExceptionHandler(OperacaoCaixaInvalidaException.class)
+    public ResponseEntity<ApiError> handleInvalidCashOperation(OperacaoCaixaInvalidaException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(PrecoProdutoDesatualizadoException.class)
+    public ResponseEntity<ApiError> handleOutdatedPrice(
+            PrecoProdutoDesatualizadoException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, "PRECO_DESATUALIZADO", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(ChaveIdempotenciaConflitanteException.class)
+    public ResponseEntity<ApiError> handleIdempotencyConflict(
+            ChaveIdempotenciaConflitanteException exception, HttpServletRequest request) {
+        return buildResponse(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED", exception.getMessage(), request);
+    }
+
     @ExceptionHandler(OperacaoClienteInvalidaException.class)
     public ResponseEntity<ApiError> handleInvalidCustomerOperation(OperacaoClienteInvalidaException exception, HttpServletRequest request) {
         return buildResponse(HttpStatus.CONFLICT, exception.getMessage(), request);
@@ -139,10 +156,19 @@ public class GlobalExceptionHandler {
             HttpStatus status,
             String message,
             HttpServletRequest request) {
+        return buildResponse(status, null, message, request);
+    }
+
+    private ResponseEntity<ApiError> buildResponse(
+            HttpStatus status,
+            String code,
+            String message,
+            HttpServletRequest request) {
         ApiError error = new ApiError(
                 Instant.now(),
                 status.value(),
                 status.getReasonPhrase(),
+                code,
                 message,
                 request.getRequestURI());
 

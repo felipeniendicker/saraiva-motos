@@ -42,6 +42,24 @@
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
+.cash-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
+.cash-form label { display: grid; gap: 6px; }
+.cash-header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.cash-header > div { display: grid; gap: 4px; }
+.cash-header strong { font-size: 1.75rem; }
+.cash-totals { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 10px; margin: 16px 0; }
+.cash-totals div { background: var(--surface-soft, #f6f7f9); border-radius: 10px; display: grid; gap: 4px; padding: 12px; }
+.cash-history article { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border, #ddd); }
+.remote-reader-connect { margin-top: 10px; }
+.remote-reader-card { display: flex; gap: 16px; align-items: center; margin-top: 12px; padding: 12px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+.remote-reader-card img { width: 150px; height: 150px; }
+.remote-reader-card > div { display: grid; gap: 8px; }
+.remote-scanner-page { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: #111827; }
+.remote-scanner-page section { width: min(100%, 480px); background: #fff; border-radius: 16px; padding: 20px; display: grid; gap: 16px; }
+.remote-scanner-page video { width: 100%; min-height: 220px; background: #111; border-radius: 12px; }
+.remote-scanner-page form, .remote-scanner-page label { display: grid; gap: 10px; }
+@media (max-width: 600px) { .remote-reader-card { align-items: stretch; flex-direction: column; } .remote-reader-card img { align-self: center; } }
+
 * {
   box-sizing: border-box;
 }
@@ -138,6 +156,62 @@ svg {
   display: flex;
   gap: 0.75rem;
   min-width: 0;
+}
+
+.pwa-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  z-index: 120;
+}
+
+.app-version {
+  background: rgba(24, 25, 22, 0.88);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.55rem;
+  white-space: nowrap;
+}
+
+.pwa-action-button,
+.pwa-update-button {
+  border-radius: var(--radius-control);
+  font-size: 0.82rem;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 0.55rem 0.8rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .pwa-controls {
+    align-items: stretch;
+    left: 0.75rem;
+    right: 0.75rem;
+    top: 0.75rem;
+  }
+
+  .pwa-action-button,
+  .pwa-update-button {
+    flex: 1;
+  }
+}
+
+.pwa-action-button {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary-hover);
+  color: var(--color-primary-ink);
+}
+
+.pwa-update-button {
+  background: var(--color-primary-soft);
+  border: 1px solid rgba(155, 134, 27, 0.35);
+  color: var(--color-primary-ink);
 }
 
 .session-actions span {

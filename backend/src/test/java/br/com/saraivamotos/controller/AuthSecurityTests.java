@@ -27,6 +27,10 @@ import br.com.saraivamotos.security.JwtService;
 import br.com.saraivamotos.service.AuthService;
 import br.com.saraivamotos.service.ProdutoService;
 import br.com.saraivamotos.service.ProductLookupService;
+import br.com.saraivamotos.service.LeitorRemotoService;
+import br.com.saraivamotos.dto.LeitorStatusResponse;
+import br.com.saraivamotos.dto.LeitorLeituraResponse;
+import java.time.LocalDateTime;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
@@ -39,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {AuthController.class, HealthController.class, ProdutoController.class})
+@WebMvcTest(controllers = {AuthController.class, HealthController.class, ProdutoController.class, LeitorRemotoController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtService.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = {
         "app.jwt.secret=test-secret-with-at-least-thirty-two-bytes",
@@ -54,6 +58,7 @@ class AuthSecurityTests {
     @MockitoBean private AuthService authService;
     @MockitoBean private ProdutoService produtoService;
     @MockitoBean private ProductLookupService productLookupService;
+    @MockitoBean private LeitorRemotoService leitorRemotoService;
     private Usuario usuario;
 
     @BeforeEach
@@ -142,5 +147,16 @@ class AuthSecurityTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.encontrado").value(false))
                 .andExpect(jsonPath("$.codigoConsultado").value("000123"));
+    }
+
+    @Test
+    void mobileReaderEndpointsArePublicButSessionCreationIsProtected() throws Exception {
+        when(leitorRemotoService.status("pareamento")).thenReturn(new LeitorStatusResponse(true, LocalDateTime.now().plusMinutes(5)));
+        when(leitorRemotoService.enviar(any(), any())).thenReturn(new LeitorLeituraResponse(1L, "7894900011517", LocalDateTime.now()));
+        mockMvc.perform(get("/api/leitor/remoto/pareamento")).andExpect(status().isOk()).andExpect(jsonPath("$.ativo").value(true));
+        mockMvc.perform(post("/api/leitor/remoto/pareamento/leituras").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"codigo\":\"7894900011517\",\"eventoId\":\"2d667c21-d005-4521-b011-8450f6c2dd87\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.codigo").value("7894900011517"));
+        mockMvc.perform(post("/api/leitor/sessoes")).andExpect(status().isUnauthorized());
     }
 }

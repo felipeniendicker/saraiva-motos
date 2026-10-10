@@ -9,6 +9,7 @@ import br.com.saraivamotos.exception.GlobalExceptionHandler;
 import br.com.saraivamotos.exception.OperacaoEstoqueInvalidaException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
 import br.com.saraivamotos.service.EstoqueService;
+import br.com.saraivamotos.service.OperacaoIdempotenteService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,19 +32,21 @@ class EstoqueControllerTests {
 
     @Mock
     private EstoqueService service;
+    @Mock
+    private OperacaoIdempotenteService operacoes;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new EstoqueController(service))
+        mockMvc = MockMvcBuilders.standaloneSetup(new EstoqueController(service, operacoes))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
     void entradaValidaRetornaCreated() throws Exception {
-        when(service.entrada(any())).thenReturn(response(TipoMovimentacaoEstoque.ENTRADA, 8));
+        when(operacoes.entrada(any(), any())).thenReturn(response(TipoMovimentacaoEstoque.ENTRADA, 8));
 
         mockMvc.perform(post("/api/estoque/entrada")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -71,7 +74,7 @@ class EstoqueControllerTests {
 
     @Test
     void ajusteValidoRetornaCreated() throws Exception {
-        when(service.ajustar(any())).thenReturn(response(TipoMovimentacaoEstoque.AJUSTE_SAIDA, 2));
+        when(operacoes.ajuste(any(), any())).thenReturn(response(TipoMovimentacaoEstoque.AJUSTE_SAIDA, 2));
 
         mockMvc.perform(post("/api/estoque/ajuste")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -98,7 +101,7 @@ class EstoqueControllerTests {
 
     @Test
     void saidaManualValidaRetornaCreated() throws Exception {
-        when(service.saida(any())).thenReturn(response(TipoMovimentacaoEstoque.SAIDA_MANUAL, 2));
+        when(operacoes.saida(any(), any())).thenReturn(response(TipoMovimentacaoEstoque.SAIDA_MANUAL, 2));
 
         mockMvc.perform(post("/api/estoque/saida")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -118,7 +121,7 @@ class EstoqueControllerTests {
 
     @Test
     void produtoInexistenteRetornaNotFound() throws Exception {
-        when(service.entrada(any())).thenThrow(new ProdutoNaoEncontradoException("Produto não encontrado."));
+        when(operacoes.entrada(any(), any())).thenThrow(new ProdutoNaoEncontradoException("Produto não encontrado."));
 
         mockMvc.perform(post("/api/estoque/entrada")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -128,7 +131,7 @@ class EstoqueControllerTests {
 
     @Test
     void operacaoInvalidaRetornaConflict() throws Exception {
-        when(service.ajustar(any())).thenThrow(new OperacaoEstoqueInvalidaException("Sem alteração."));
+        when(operacoes.ajuste(any(), any())).thenThrow(new OperacaoEstoqueInvalidaException("Sem alteração."));
 
         mockMvc.perform(post("/api/estoque/ajuste")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -25,6 +25,6 @@ final class SecurityErrorWriter {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getOutputStream(), new ApiError(Instant.now(), status, error, message, path));
+        objectMapper.writeValue(response.getOutputStream(), new ApiError(Instant.now(), status, error, null, message, path));
     }
 }

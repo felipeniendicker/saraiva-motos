@@ -108,6 +108,14 @@ public class EstoqueService {
         return movimentacoes.stream().map(MovimentacaoEstoqueResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public MovimentacaoEstoqueResponse buscarMovimentacao(Long id) {
+        if (id == null) throw new OperacaoEstoqueInvalidaException("A operação idempotente ainda não foi concluída.");
+        return movimentacaoRepository.findById(id)
+                .map(MovimentacaoEstoqueResponse::from)
+                .orElseThrow(() -> new OperacaoEstoqueInvalidaException("Movimentação idempotente não encontrada."));
+    }
+
     private MovimentacaoEstoqueResponse registrar(
             Produto produto,
             TipoMovimentacaoEstoque tipo,

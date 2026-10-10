@@ -12,11 +12,12 @@ public record ItemVendaResponse(
         Integer quantidade,
         BigDecimal precoOriginal,
         BigDecimal precoUnitario,
+        Boolean precoAlteradoManualmente,
         BigDecimal subtotal) {
 
     public static ItemVendaResponse from(ItemVenda item) {
         return new ItemVendaResponse(item.getId(), item.getProduto().getId(), item.getCodigoProduto(),
                 item.getDescricaoProduto(), item.getQuantidade(), item.getPrecoOriginal(),
-                item.getPrecoUnitario(), item.getSubtotal());
+                item.getPrecoUnitario(), item.getPrecoAlteradoManualmente(), item.getSubtotal());
     }
 }

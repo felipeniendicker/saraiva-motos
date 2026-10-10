@@ -16,6 +16,13 @@ test("envia entrada para a API", async () => {
   assert.equal((await addStock({ produtoId: 1, quantidade: 3, observacao: "Compra" })).id, 10);
 });
 
+test("envia chave idempotente da movimentação", async () => {
+  let options;
+  global.fetch = async (_url, received) => { options = received; return response({ id: 10 }); };
+  await addStock({ produtoId: 1, quantidade: 1 }, "8a762fb8-13d8-4124-96d7-22e19a8e65c5");
+  assert.equal(options.headers["Idempotency-Key"], "8a762fb8-13d8-4124-96d7-22e19a8e65c5");
+});
+
 test("envia ajuste com o novo saldo real", async () => {
   global.fetch = async (url, options) => {
     assert.equal(url, "http://localhost:8080/api/estoque/ajuste");

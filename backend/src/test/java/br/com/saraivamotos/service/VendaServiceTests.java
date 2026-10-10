@@ -15,6 +15,7 @@ import br.com.saraivamotos.dto.ItemVendaRequest;
 import br.com.saraivamotos.dto.VendaRequest;
 import br.com.saraivamotos.dto.VendaResponse;
 import br.com.saraivamotos.exception.OperacaoVendaInvalidaException;
+import br.com.saraivamotos.exception.PrecoProdutoDesatualizadoException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
 import br.com.saraivamotos.repository.ProdutoRepository;
 import br.com.saraivamotos.repository.VendaRepository;
@@ -108,6 +109,33 @@ class VendaServiceTests {
     }
 
     @Test
+    void rejeitaPrecoPadraoAlteradoEmOutroComputador() {
+        Produto produto = produto(7, true);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+        ItemVendaRequest item = new ItemVendaRequest(1L, 1, new BigDecimal("20.00"),
+                new BigDecimal("20.00"), false);
+
+        assertThrows(PrecoProdutoDesatualizadoException.class, () -> service.criar(new VendaRequest(null,
+                List.of(item), BigDecimal.ZERO, FormaPagamento.PIX, null)));
+        verify(vendaRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void preservaNegociacaoManualMesmoQuandoCadastroMudou() {
+        Produto produto = produto(7, true);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+        ItemVendaRequest item = new ItemVendaRequest(1L, 1, new BigDecimal("19.00"),
+                new BigDecimal("20.00"), true);
+
+        VendaResponse response = service.criar(new VendaRequest(null, List.of(item), BigDecimal.ZERO,
+                FormaPagamento.PIX, null));
+
+        assertEquals(new BigDecimal("19.00"), response.itens().get(0).precoUnitario());
+        assertEquals(true, response.itens().get(0).precoAlteradoManualmente());
+        assertEquals(new BigDecimal("25.50"), response.itens().get(0).precoOriginal());
+    }
+
+    @Test
     void clienteInativoImpedeVendaAntesDeAlterarEstoque() {
         when(clienteRepository.findById(8L)).thenReturn(Optional.of(cliente(8L, TipoCliente.CLIENTE_COMUM, false)));
         assertThrows(OperacaoVendaInvalidaException.class, () -> service.criar(new VendaRequest(8L,
@@ -124,10 +152,47 @@ class VendaServiceTests {
         VendaResponse response = service.criar(new VendaRequest(8L,
                 List.of(new ItemVendaRequest(1L, 1, new BigDecimal("19.00"))), BigDecimal.ZERO,
                 FormaPagamento.PIX, null));
-        BigDecimal esperado = tipo == TipoCliente.CLIENTE_COMUM ? new BigDecimal("25.50") : new BigDecimal("20.00");
+        BigDecimal esperado = tipo.getTipoPreco() == TipoPreco.REVENDA
+                ? new BigDecimal("20.00") : new BigDecimal("25.50");
         assertEquals(esperado, response.itens().get(0).precoOriginal());
         assertEquals(tipo.getTipoPreco(), response.tipoPrecoUtilizado());
         assertEquals(new BigDecimal("19.00"), response.itens().get(0).precoUnitario());
+    }
+
+    @Test
+    void descontoPercentualEhCalculadoNoServidorEArredondadoEmCentavos() {
+        Produto produto = produto(7, true);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+
+        VendaResponse response = service.criar(new VendaRequest(null,
+                List.of(new ItemVendaRequest(1L, 1, new BigDecimal("19.99"))),
+                BigDecimal.ZERO, new BigDecimal("12.5"), FormaPagamento.PIX, null));
+
+        assertEquals(new BigDecimal("2.50"), response.desconto());
+        assertEquals(new BigDecimal("12.5000"), response.descontoPercentual());
+        assertEquals(new BigDecimal("17.49"), response.total());
+    }
+
+    @Test
+    void vendaLegadaSemPercentualContinuaAceitandoDescontoEmReais() {
+        Produto produto = produto(7, true);
+        when(produtoRepository.findAllByIdForUpdate(List.of(1L))).thenReturn(List.of(produto));
+
+        VendaResponse response = service.criar(new VendaRequest(null,
+                List.of(new ItemVendaRequest(1L, 1, new BigDecimal("20.00"))),
+                new BigDecimal("3.00"), FormaPagamento.PIX, null));
+
+        assertEquals(new BigDecimal("3.00"), response.desconto());
+        assertEquals(null, response.descontoPercentual());
+        assertEquals(new BigDecimal("17.00"), response.total());
+    }
+
+    @Test
+    void rejeitaPercentualForaDoIntervalo() {
+        assertThrows(IllegalArgumentException.class, () -> service.criar(new VendaRequest(null,
+                List.of(new ItemVendaRequest(1L, 1, BigDecimal.TEN)), BigDecimal.ZERO,
+                new BigDecimal("100.01"), FormaPagamento.PIX, null)));
+        verify(produtoRepository, never()).findAllByIdForUpdate(any());
     }
 
     @Test

@@ -10,5 +10,9 @@ export function listSales({ clientId } = {}) {
   return request(`/api/vendas${query}`);
 }
 export const getSale = (id) => request(`/api/vendas/${encodeURIComponent(id)}`);
-export const createSale = (data) => request("/api/vendas", { method: "POST", body: JSON.stringify(data) });
+export const createSale = (data, idempotencyKey) => request("/api/vendas", {
+  method: "POST",
+  headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {},
+  body: JSON.stringify(data)
+});
 export const cancelSaleApi = (id, motivo) => request(`/api/vendas/${encodeURIComponent(id)}/cancelar`, { method: "POST", body: JSON.stringify({ motivo }) });

@@ -15,6 +15,10 @@ export const CUSTOMER_TYPE_LABELS = {
 };
 
 export const PRICE_TYPES = ["VAREJO", "REVENDA"];
+export const PRICE_TYPE_LABELS = {
+  VAREJO: "Venda",
+  REVENDA: "Revenda"
+};
 export const PAYMENT_METHODS = [
   "DINHEIRO",
   "PIX",
@@ -44,9 +48,14 @@ export const STOCK_MOVEMENT_TYPES = [
 ];
 
 export function getDefaultPriceType(customer) {
-  return ["OFICINA", "MECANICO", "MOTOPECA", "REVENDEDOR"].includes(customer?.tipoCliente)
-    ? "REVENDA"
-    : "VAREJO";
+  const priceTypeByCustomerType = {
+    CLIENTE_COMUM: "VAREJO",
+    OFICINA: "REVENDA",
+    MECANICO: "REVENDA",
+    MOTOPECA: "REVENDA",
+    REVENDEDOR: "REVENDA"
+  };
+  return priceTypeByCustomerType[customer?.tipoCliente] || "VAREJO";
 }
 
 export function getProductPrice(product, priceType) {

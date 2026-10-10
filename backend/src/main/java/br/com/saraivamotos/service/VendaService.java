@@ -27,6 +27,7 @@ import br.com.saraivamotos.dto.VendaResponse;
 import br.com.saraivamotos.exception.OperacaoVendaInvalidaException;
 import br.com.saraivamotos.exception.ClienteNaoEncontradoException;
 import br.com.saraivamotos.exception.ProdutoNaoEncontradoException;
+import br.com.saraivamotos.exception.PrecoProdutoDesatualizadoException;
 import br.com.saraivamotos.exception.VendaNaoEncontradaException;
 import br.com.saraivamotos.repository.MovimentacaoEstoqueRepository;
 import br.com.saraivamotos.repository.ClienteRepository;
@@ -68,18 +69,22 @@ public class VendaService {
             Produto produto = produtos.get(itemRequest.produtoId());
             validarProdutoParaVenda(produto, itemRequest.quantidade());
             BigDecimal precoOriginal = dinheiro(tipoPreco == TipoPreco.REVENDA ? produto.getPrecoRevenda() : produto.getPrecoVarejo());
+            validarPrecoAtual(itemRequest, produto, precoOriginal);
             BigDecimal precoPraticado = dinheiro(itemRequest.precoUnitario());
             BigDecimal subtotalItem = dinheiro(precoPraticado.multiply(BigDecimal.valueOf(itemRequest.quantidade())));
             calculados.add(new ItemCalculado(itemRequest, produto, precoOriginal, precoPraticado, subtotalItem));
             subtotalVenda = dinheiro(subtotalVenda.add(subtotalItem));
         }
 
-        BigDecimal desconto = dinheiro(request.desconto());
+        BigDecimal descontoPercentual = percentual(request.descontoPercentual());
+        BigDecimal desconto = descontoPercentual == null
+                ? dinheiro(request.desconto())
+                : dinheiro(subtotalVenda.multiply(descontoPercentual).divide(BigDecimal.valueOf(100)));
         if (desconto.compareTo(subtotalVenda) > 0) {
             throw new IllegalArgumentException("O desconto não pode ser maior que o subtotal da venda.");
         }
 
-        Venda venda = novaVenda(request, cliente, tipoPreco, subtotalVenda, desconto);
+        Venda venda = novaVenda(request, cliente, tipoPreco, subtotalVenda, desconto, descontoPercentual);
         venda = vendaRepository.saveAndFlush(venda);
         venda.setNumeroVenda(String.format("%06d", venda.getId()));
 
@@ -164,6 +169,10 @@ public class VendaService {
     private void validarRequest(VendaRequest request) {
         if (request.itens() == null || request.itens().isEmpty()) throw new IllegalArgumentException("A venda deve possuir ao menos um item.");
         if (request.desconto() == null || request.desconto().signum() < 0) throw new IllegalArgumentException("O desconto não pode ser negativo.");
+        if (request.descontoPercentual() != null
+                && (request.descontoPercentual().signum() < 0 || request.descontoPercentual().compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new IllegalArgumentException("O desconto percentual deve estar entre 0% e 100%.");
+        }
         if (request.formaPagamento() == null) throw new IllegalArgumentException("A forma de pagamento é obrigatória.");
         for (ItemVendaRequest item : request.itens()) {
             if (item.produtoId() == null) throw new IllegalArgumentException("O produto do item é obrigatório.");
@@ -195,7 +204,8 @@ public class VendaService {
         if (produto.getQuantidadeEstoque() < quantidade) throw new OperacaoVendaInvalidaException("Estoque insuficiente para o produto " + produto.getNome() + ".");
     }
 
-    private Venda novaVenda(VendaRequest request, Cliente cliente, TipoPreco tipoPreco, BigDecimal subtotal, BigDecimal desconto) {
+    private Venda novaVenda(VendaRequest request, Cliente cliente, TipoPreco tipoPreco, BigDecimal subtotal,
+            BigDecimal desconto, BigDecimal descontoPercentual) {
         Venda venda = new Venda();
         venda.setNumeroVenda("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
         venda.setClienteId(cliente == null ? null : cliente.getId());
@@ -204,6 +214,7 @@ public class VendaService {
         venda.setTipoPrecoUtilizado(tipoPreco);
         venda.setSubtotal(subtotal);
         venda.setDesconto(desconto);
+        venda.setDescontoPercentual(descontoPercentual);
         venda.setTotal(dinheiro(subtotal.subtract(desconto)));
         venda.setFormaPagamento(request.formaPagamento());
         venda.setStatus(StatusVenda.CONCLUIDA);
@@ -230,6 +241,7 @@ public class VendaService {
         item.setQuantidade(calculado.request().quantidade());
         item.setPrecoOriginal(calculado.precoOriginal());
         item.setPrecoUnitario(calculado.precoPraticado());
+        item.setPrecoAlteradoManualmente(!Boolean.FALSE.equals(calculado.request().precoAlteradoManualmente()));
         item.setSubtotal(calculado.subtotal());
         return item;
     }
@@ -249,7 +261,24 @@ public class VendaService {
     }
 
     private BigDecimal dinheiro(BigDecimal valor) { return valor.setScale(ESCALA, RoundingMode.HALF_UP); }
+    private BigDecimal percentual(BigDecimal valor) { return valor == null ? null : valor.setScale(4, RoundingMode.HALF_UP); }
     private String normalizarOpcional(String valor) { return valor == null || valor.isBlank() ? null : valor.trim(); }
+
+    private void validarPrecoAtual(ItemVendaRequest request, Produto produto, BigDecimal precoAtual) {
+        // Payloads anteriores à flag são tratados como negociação para manter compatibilidade
+        // durante a atualização gradual das PWAs já instaladas.
+        if (request.precoAlteradoManualmente() == null || Boolean.TRUE.equals(request.precoAlteradoManualmente())) return;
+        BigDecimal precoConhecido = dinheiro(request.precoOriginal() == null
+                ? request.precoUnitario()
+                : request.precoOriginal());
+        if (precoConhecido.compareTo(precoAtual) != 0) {
+            throw new PrecoProdutoDesatualizadoException(produto.getNome());
+        }
+        if (dinheiro(request.precoUnitario()).compareTo(precoConhecido) != 0) {
+            throw new OperacaoVendaInvalidaException(
+                    "O preço praticado difere do cadastro, mas não foi marcado como negociação manual.");
+        }
+    }
 
     private record ItemCalculado(ItemVendaRequest request, Produto produto, BigDecimal precoOriginal,
             BigDecimal precoPraticado, BigDecimal subtotal) {}

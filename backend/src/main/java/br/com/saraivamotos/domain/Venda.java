@@ -22,6 +22,8 @@ import jakarta.persistence.Table;
 public class Venda {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "caixa_id")
+    private Long caixaId;
     @Column(name = "numero_venda", nullable = false, unique = true, length = 30)
     private String numeroVenda;
     @Column(name = "cliente_id")
@@ -36,6 +38,8 @@ public class Venda {
     private BigDecimal subtotal;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal desconto;
+    @Column(name = "desconto_percentual", precision = 7, scale = 4)
+    private BigDecimal descontoPercentual;
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal total;
     @Enumerated(EnumType.STRING) @Column(name = "forma_pagamento", nullable = false, length = 30)
@@ -56,6 +60,8 @@ public class Venda {
     public void adicionarItem(ItemVenda item) { itens.add(item); item.setVenda(this); }
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCaixaId() { return caixaId; }
+    public void setCaixaId(Long caixaId) { this.caixaId = caixaId; }
     public String getNumeroVenda() { return numeroVenda; }
     public void setNumeroVenda(String numeroVenda) { this.numeroVenda = numeroVenda; }
     public Long getClienteId() { return clienteId; }
@@ -70,6 +76,8 @@ public class Venda {
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
     public BigDecimal getDesconto() { return desconto; }
     public void setDesconto(BigDecimal desconto) { this.desconto = desconto; }
+    public BigDecimal getDescontoPercentual() { return descontoPercentual; }
+    public void setDescontoPercentual(BigDecimal descontoPercentual) { this.descontoPercentual = descontoPercentual; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
     public FormaPagamento getFormaPagamento() { return formaPagamento; }

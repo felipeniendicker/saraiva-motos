@@ -19,7 +19,7 @@ export default function SaleReceiptPreview({ sale, customers, onClose }) {
 
         <div className="receipt-preview-actions no-print">
           <button type="button" className="secondary-button" onClick={onClose}>Voltar</button>
-          <button type="button" className="primary-button" onClick={() => window.print()}>Imprimir comprovante</button>
+          <button type="button" className="primary-button" onClick={() => window.print()}>IMPRIMIR</button>
         </div>
       </div>
     </div>,

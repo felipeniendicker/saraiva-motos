@@ -2,6 +2,12 @@
 
 Sistema operacional da Saraiva Motos para atendimento e controle da loja.
 
+O procedimento isolado de backup, restauracao, migrations MySQL 8, Railway e PWA esta em
+[`docs/HOMOLOGACAO_RAILWAY.md`](docs/HOMOLOGACAO_RAILWAY.md).
+
+As regras operacionais e o roteiro de homologacao do caixa e leitor por celular estao em
+[`docs/CAIXA_E_LEITOR_REMOTO.md`](docs/CAIXA_E_LEITOR_REMOTO.md).
+
 ## Módulos atuais
 
 - Dashboard;
@@ -54,6 +60,14 @@ npm run build
 
 O diretório publicado é `demo/dist`. `VITE_API_URL` deve conter a URL pública do backend, sem `/api` no final. Variáveis `VITE_*` são incorporadas ao bundle e, portanto, nunca devem conter senhas, tokens ou chaves privadas. O `HashRouter` permite servir as rotas pelo mesmo arquivo estático sem regras especiais de rewrite.
 
+### Aplicativo instalável (PWA)
+
+O build do frontend gera o manifest e o service worker do PWA “Saraiva Motos”. Em Chrome e Edge no Windows, a instalação pode ser iniciada pelo botão `Instalar Saraiva Motos` exibido quando o navegador informa que o aplicativo é instalável, ou pelo comando de instalação do próprio navegador.
+
+O service worker mantém em cache somente o shell estático versionado do frontend. Requisições `GET` com caminho `/api/` usam exclusivamente a rede; requisições de escrita não são interceptadas. Portanto, vendas, estoque, clientes e autenticação não possuem fallback em cache e o sistema não oferece operação offline completa.
+
+Uma nova versão fica aguardando confirmação do operador. O sistema só ativa a atualização e recarrega a página depois do clique em `Atualização disponível` e de uma confirmação explícita, que orienta a concluir qualquer venda em andamento primeiro.
+
 ### Backend
 
 O backend fica em `backend/`, exige Java 17 e utiliza o Maven Wrapper:
@@ -90,6 +104,7 @@ Configure `CORS_ALLOWED_ORIGINS` com a origem HTTPS exata do frontend. Para mais
 | `INITIAL_USER_EMAIL` | backend | no primeiro bootstrap | E-mail do primeiro usuário |
 | `INITIAL_USER_PASSWORD` | backend | no primeiro bootstrap | Senha inicial do primeiro usuário |
 | `CORS_ALLOWED_ORIGINS` | backend | sim | Origens permitidas do frontend |
+| `FRONTEND_PUBLIC_URL` | backend | sim para leitor remoto | URL HTTPS do frontend usada no QR Code temporário |
 | `UPCITEMDB_ENABLED` | backend | não | Habilita ou desabilita o provider UPCitemdb |
 | `UPCITEMDB_BASE_URL` | backend | não | URL base do UPCitemdb |
 | `UPCITEMDB_CONNECT_TIMEOUT` | backend | não | Timeout de conexão do UPCitemdb |

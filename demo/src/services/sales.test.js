@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addProductToCart, buildSaleConfirmation, calculateSaleTotals, changeCartItemPrice, changeCartItemQuantity, filterSalesHistory, findProductByCode, getSaleReceiptData, repriceCart, runSingleSubmission, searchActiveCustomers, searchActiveProducts } from "./sales.js";
+import { addProductToCart, buildSaleConfirmation, calculateSaleTotals, changeCartItemPrice, changeCartItemQuantity, filterSalesHistory, findProductByCode, getSaleDiscountPercentage, getSaleReceiptData, repriceCart, runSingleSubmission, searchActiveCustomers, searchActiveProducts } from "./sales.js";
 
 const product = (values = {}) => ({ id: 1, nome: "Pastilha", codigoReferencia: "PF-1", codigoBarras: "00123", precoVarejo: 100, precoRevenda: 80, quantidadeEstoque: 2, ativo: true, ...values });
 
@@ -17,8 +17,8 @@ test("carrinho preserva estoque e preço negociado", () => {
   assert.equal(repriceCart(negotiated.items, [product()], "REVENDA")[0].precoUnitario, 90);
 });
 
-test("totais, cliente opcional e confirmação continuam locais apenas como estado do carrinho", () => {
-  assert.deepEqual(calculateSaleTotals([{ precoUnitario: 10.5, quantidade: 2 }], 1), { subtotal: 21, desconto: 1, total: 20 });
+test("desconto percentual aceita decimais e arredonda o valor em centavos", () => {
+  assert.deepEqual(calculateSaleTotals([{ precoUnitario: 19.99, quantidade: 1 }], 12.5), { subtotal: 19.99, descontoPercentual: 12.5, desconto: 2.5, total: 17.49 });
   assert.equal(buildSaleConfirmation({ items: [{ quantidade: 2 }], total: 20, paymentMethod: "PIX" }).customerName, "Consumidor não identificado");
 });
 
@@ -30,6 +30,7 @@ test("histórico e reimpressão usam snapshots recebidos da API", () => {
   const sale = { id: 1, numeroVenda: "000001", clienteId: null, dataHora: "2026-01-02T10:00:00", status: "CONCLUIDA", itens: [{ id: 1, descricaoProduto: "Snapshot", quantidade: 1, precoUnitario: 5, subtotal: 5 }], subtotal: 5, desconto: 0, total: 5 };
   assert.equal(filterSalesHistory([sale], { status: "CONCLUIDA" }).length, 1);
   assert.equal(getSaleReceiptData(sale).itens[0].descricaoProduto, "Snapshot");
+  assert.equal(getSaleDiscountPercentage({ subtotal: 200, desconto: 20 }), 10);
 });
 
 test("trava impede submissão duplicada", async () => {

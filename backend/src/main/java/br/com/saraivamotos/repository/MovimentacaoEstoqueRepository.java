@@ -1,6 +1,7 @@
 package br.com.saraivamotos.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import br.com.saraivamotos.domain.MovimentacaoEstoque;
 
@@ -9,6 +10,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.domain.Pageable;
 
 public interface MovimentacaoEstoqueRepository extends JpaRepository<MovimentacaoEstoque, Long> {
+
+    @Override
+    @EntityGraph(attributePaths = "produto")
+    Optional<MovimentacaoEstoque> findById(Long id);
 
     @EntityGraph(attributePaths = "produto")
     List<MovimentacaoEstoque> findAllByOrderByDataHoraDescIdDesc();

@@ -9,5 +9,11 @@ import jakarta.validation.constraints.Positive;
 public record ItemVendaRequest(
         @NotNull Long produtoId,
         @NotNull @Positive Integer quantidade,
-        @NotNull @DecimalMin(value = "0.00", inclusive = true) BigDecimal precoUnitario) {
+        @NotNull @DecimalMin(value = "0.00", inclusive = true) BigDecimal precoUnitario,
+        @DecimalMin(value = "0.00", inclusive = true) BigDecimal precoOriginal,
+        Boolean precoAlteradoManualmente) {
+
+    public ItemVendaRequest(Long produtoId, Integer quantidade, BigDecimal precoUnitario) {
+        this(produtoId, quantidade, precoUnitario, precoUnitario, true);
+    }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "../components/EmptyState.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Panel from "../components/Panel.jsx";
@@ -6,6 +6,9 @@ import { STOCK_MOVEMENT_TYPES } from "../data/domain.js";
 import { filterStockMovements, getStockStatus, searchOperationalProducts } from "../services/inventory.js";
 import { listProducts } from "../services/productsApi.js";
 import { addStock, adjustStock, listStockMovements, removeStock } from "../services/stockApi.js";
+import { getOperationAttempt } from "../services/operationAttempt.js";
+import { setAppUpdateBlocked } from "../services/updateSafety.js";
+import { saveThenRefresh } from "../services/mutationFlow.js";
 
 const initialForm = { produtoId: "", operacao: "ENTRADA", valor: "1", motivo: "" };
 const initialFilters = { productId: "", type: "", dateFrom: "", dateTo: "" };
@@ -32,6 +35,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+  const movementAttemptRef = useRef(null);
   const products = apiProducts;
   const activeProducts = useMemo(() => searchOperationalProducts(products, productSearch), [products, productSearch]);
   const lowStock = products.filter((product) => product.ativo && product.quantidadeEstoque <= product.estoqueMinimo);
@@ -64,6 +68,12 @@ export default function InventoryPage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    setAppUpdateBlocked("stock-movement", loading && (confirmation !== null || form !== initialForm));
+  }, [loading, confirmation, form]);
+
+  useEffect(() => () => setAppUpdateBlocked("stock-movement", false), []);
+
   async function retryLoad() {
     setLoading(true);
     try {
@@ -83,13 +93,25 @@ export default function InventoryPage() {
 
   async function processMovement(request) {
     setLoading(true);
+    const payload = request.operation === "ENTRADA"
+      ? { produtoId: request.productId, quantidade: request.value, observacao: request.reason }
+      : request.operation === "AJUSTE"
+        ? { produtoId: request.productId, novoSaldo: request.value, motivo: request.reason }
+        : { produtoId: request.productId, quantidade: request.value, motivo: request.reason };
+    const attempt = getOperationAttempt(movementAttemptRef.current, { operation: request.operation, ...payload });
+    movementAttemptRef.current = attempt;
     try {
-      if (request.operation === "ENTRADA") await addStock({ produtoId: request.productId, quantidade: request.value, observacao: request.reason });
-      if (request.operation === "AJUSTE") await adjustStock({ produtoId: request.productId, novoSaldo: request.value, motivo: request.reason });
-      if (request.operation === "SAIDA") await removeStock({ produtoId: request.productId, quantidade: request.value, motivo: request.reason });
-      await loadApiData();
+      const saved = await saveThenRefresh(async () => {
+        if (request.operation === "ENTRADA") return addStock(payload, attempt.key);
+        if (request.operation === "AJUSTE") return adjustStock(payload, attempt.key);
+        return removeStock(payload, attempt.key);
+      }, loadApiData);
+      movementAttemptRef.current = null;
       setFeedback({ type: "success", message: "Movimentação registrada com sucesso." });
       setForm(initialForm);
+      if (saved.refreshError) {
+        setFeedback({ type: "warning", message: "Movimentação registrada, mas não foi possível atualizar a tela. Use Tentar novamente antes de repetir." });
+      }
     } catch (error) {
       setFeedback({ type: "danger", message: error.message || "Não foi possível registrar a movimentação." });
     } finally {

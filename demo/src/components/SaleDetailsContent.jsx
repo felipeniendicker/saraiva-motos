@@ -1,5 +1,5 @@
-import { PAYMENT_METHOD_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
-import { getSaleCustomerLabel } from "../services/sales.js";
+import { PAYMENT_METHOD_LABELS, PRICE_TYPE_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
+import { getSaleCustomerLabel, getSaleDiscountPercentage } from "../services/sales.js";
 import { formatCurrency } from "../utils/formatters.js";
 
 export function formatSaleDateTime(value) {
@@ -12,7 +12,7 @@ export default function SaleDetailsContent({ sale, customers = [] }) {
     <div className="sale-details-grid">
       <div><span>Status</span><strong>{SALE_STATUS_LABELS[sale.status] || sale.status}</strong></div>
       <div><span>Cliente</span><strong>{getSaleCustomerLabel(sale, customers)}</strong></div>
-      <div><span>Tipo de preço</span><strong>{sale.tipoPrecoUtilizado}</strong></div>
+      <div><span>Tipo de preço</span><strong>{PRICE_TYPE_LABELS[sale.tipoPrecoUtilizado] || sale.tipoPrecoUtilizado}</strong></div>
       <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
       <div className="field-wide"><span>Observações</span><strong>{sale.observacoes || "Sem observações."}</strong></div>
     </div>
@@ -29,7 +29,7 @@ export default function SaleDetailsContent({ sale, customers = [] }) {
 
     <div className="sale-detail-totals">
       <span>Subtotal <strong>{formatCurrency(sale.subtotal)}</strong></span>
-      <span>Desconto <strong>{formatCurrency(sale.desconto)}</strong></span>
+      <span>Desconto <strong>{Number(getSaleDiscountPercentage(sale)).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% · {formatCurrency(sale.desconto)}</strong></span>
       <span>Total <strong>{formatCurrency(sale.total)}</strong></span>
     </div>
 
