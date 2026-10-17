@@ -88,6 +88,17 @@ class TavilyProductLookupProviderTests {
     }
 
     @Test
+    void authenticationAndAuthorizationErrorsAreSafeUnavailableStates() {
+        server.expect(requestTo("https://tavily.test/search"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.UNAUTHORIZED));
+        server.expect(requestTo("https://tavily.test/search"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.FORBIDDEN));
+
+        assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7898635121541"));
+        assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7898635121541"));
+    }
+
+    @Test
     void unexpectedSuccessfulResponseDoesNotCauseInternalError() {
         respond("{\"unexpected\":true}");
         assertTrue(provider.lookup("7898485619632").isEmpty());

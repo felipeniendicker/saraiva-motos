@@ -1,68 +1,72 @@
 import { getSalePaymentLabel, PRICE_TYPE_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
 import { getSaleReceiptData } from "./sales.js";
-import { buildTextPdf, downloadPdf } from "./textPdf.js";
+import { buildThermalPdf, downloadPdf } from "./textPdf.js";
+import { companyHeader, documentFooter } from "./thermalDocument.js";
 
-const PAPER_WIDTH = 226.77;
 const MONEY = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const PERCENT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 });
+const DATE_TIME = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-function wrapLine(value, limit = 42) {
-  const words = String(value ?? "").replace(/\s+/g, " ").trim().split(" ");
-  const lines = [];
-  let line = "";
-  for (const word of words) {
-    if (!line) {
-      line = word;
-    } else if (`${line} ${word}`.length <= limit) {
-      line += ` ${word}`;
-    } else {
-      lines.push(line);
-      line = word;
-    }
-  }
-  if (line) lines.push(line);
-  return lines.length ? lines : [""];
+function formatDateTime(value) {
+  return value ? DATE_TIME.format(new Date(value)) : "Não informado";
 }
 
-function receiptLines(sale, customers) {
-  const receipt = getSaleReceiptData(sale, customers);
-  const lines = [
-    "SARAIVA MOTOS",
-    "COMPROVANTE DE VENDA",
-    "------------------------------------------",
-    `Venda: ${receipt.numeroVenda}`,
-    `Data: ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(receipt.dataHora))}`,
-    `Status: ${SALE_STATUS_LABELS[receipt.status] || receipt.status}`,
-    ...wrapLine(`Cliente: ${receipt.clienteNome || "Consumidor não identificado"}`),
-    `Tabela: ${PRICE_TYPE_LABELS[receipt.tipoPrecoUtilizado] || receipt.tipoPrecoUtilizado}`,
-    "------------------------------------------"
+function saleItemElements(item) {
+  return [
+    { type: "text", text: item.descricaoProduto || "Item sem descrição", bold: true, fontSize: 7.6, lineHeight: 9.4 },
+    ...(item.codigoProduto ? [{ type: "text", text: `Ref.: ${item.codigoProduto}`, fontSize: 6.7, lineHeight: 8 }] : []),
+    {
+      type: "pair",
+      left: `Qtd. ${item.quantidade} x ${MONEY.format(item.precoUnitario)}`,
+      right: MONEY.format(item.subtotal),
+      fontSize: 7.3,
+      boldRight: true,
+      gapAfter: 3
+    },
+    { type: "rule", style: "dotted", gapAfter: 4 }
   ];
+}
 
-  for (const item of receipt.itens) {
-    lines.push(...wrapLine(`${item.quantidade}x ${item.descricaoProduto}`));
-    if (item.codigoProduto) lines.push(...wrapLine(`Ref.: ${item.codigoProduto}`));
-    lines.push(`${item.quantidade} x ${MONEY.format(item.precoUnitario)} = ${MONEY.format(item.subtotal)}`);
-  }
-
-  lines.push(
-    "------------------------------------------",
-    `Subtotal: ${MONEY.format(receipt.subtotal)}`,
-    `Desconto: ${PERCENT.format(receipt.descontoPercentual)}% (${MONEY.format(receipt.desconto)})`,
-    `TOTAL: ${MONEY.format(receipt.total)}`,
-    ...wrapLine(`Pagamento: ${getSalePaymentLabel(receipt)}`)
-  );
-  if (receipt.observacoes) lines.push(...wrapLine(`Observação: ${receipt.observacoes}`));
-  if (receipt.status === "CANCELADA") {
-    lines.push(...wrapLine(`Cancelada em: ${new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(receipt.dataCancelamento))}`));
-    lines.push(...wrapLine(`Motivo: ${receipt.motivoCancelamento || "Não informado"}`));
-  }
-  lines.push("------------------------------------------", "Obrigado pela preferência!");
-  return lines;
+function cancellationElements(receipt) {
+  if (receipt.status !== "CANCELADA") return [];
+  return [
+    { type: "rule", style: "dashed", gapBefore: 3, gapAfter: 5 },
+    { type: "text", text: "VENDA CANCELADA", align: "center", bold: true, fontSize: 9, gapAfter: 2 },
+    { type: "text", text: `Cancelada em: ${formatDateTime(receipt.dataCancelamento)}`, fontSize: 7.2 },
+    { type: "text", text: `Motivo: ${receipt.motivoCancelamento || "Não informado"}`, fontSize: 7.2, lineHeight: 9 }
+  ];
 }
 
 export function buildSaleReceiptPdf(sale, customers = []) {
-  const lines = receiptLines(sale, customers);
-  return buildTextPdf(lines, { paperWidth: PAPER_WIDTH, minHeight: 320, margin: 10, fontSize: 8, leading: 10 });
+  const receipt = getSaleReceiptData(sale, customers);
+  const number = receipt.numeroVenda || receipt.id || "Não informado";
+  const elements = [
+    ...companyHeader("COMPROVANTE"),
+    { type: "pair", left: "Número", right: String(number), fontSize: 7.4, boldLeft: true, boldRight: true },
+    { type: "pair", left: "Emissão", right: formatDateTime(receipt.dataHora), fontSize: 7.2, boldLeft: true },
+    { type: "pair", left: "Status", right: SALE_STATUS_LABELS[receipt.status] || receipt.status || "Não informado", fontSize: 7.2, boldLeft: true, gapAfter: 2 },
+    { type: "text", text: `Cliente: ${receipt.clienteNome || "Consumidor não identificado"}`, fontSize: 7.3, lineHeight: 9.2 },
+    { type: "text", text: `Vendedor: ${sale.operadorEmail || sale.vendedor || "Não informado"}`, fontSize: 7.3, lineHeight: 9.2 },
+    { type: "text", text: `Tabela: ${PRICE_TYPE_LABELS[receipt.tipoPrecoUtilizado] || receipt.tipoPrecoUtilizado || "Não informada"}`, fontSize: 7.3, lineHeight: 9.2, gapAfter: 5 },
+    { type: "rule", style: "dashed", gapAfter: 5 },
+    { type: "pair", left: "DESCRIÇÃO / QTD. x UNIT.", right: "TOTAL", fontSize: 6.8, boldLeft: true, boldRight: true, gapAfter: 4 },
+    ...(receipt.itens || []).flatMap(saleItemElements),
+    { type: "pair", left: "Subtotal", right: MONEY.format(receipt.subtotal), fontSize: 8, boldLeft: true, boldRight: true, gapBefore: 2 },
+    {
+      type: "pair",
+      left: `Desconto (${PERCENT.format(Number(receipt.descontoPercentual || 0))}%)`,
+      right: MONEY.format(receipt.desconto),
+      fontSize: 8,
+      boldRight: true,
+      gapAfter: 3
+    },
+    { type: "rule", style: "solid", gapAfter: 5 },
+    { type: "pair", left: "TOTAL", right: MONEY.format(receipt.total), fontSize: 11, boldLeft: true, boldRight: true, gapAfter: 3 },
+    { type: "text", text: `Pagamento: ${getSalePaymentLabel(receipt)}`, fontSize: 7.5, lineHeight: 9.5 },
+    ...cancellationElements(receipt),
+    ...documentFooter(`COMPROVANTE ${number}`, receipt.observacoes)
+  ];
+  return buildThermalPdf(elements, { paperWidth: 226.77, margin: 10, bottomMargin: 9 });
 }
 
 export function getSaleReceiptPdfFilename(sale) {

@@ -127,6 +127,14 @@ class UpcItemDbProductLookupProviderTests {
     }
 
     @Test
+    void unauthorizedMeansTemporarilyUnavailable() {
+        server.expect(requestTo("https://provider.test/lookup?upc=7898635121541"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.UNAUTHORIZED));
+
+        assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7898635121541"));
+    }
+
+    @Test
     void serverErrorMeansTemporarilyUnavailable() {
         server.expect(requestTo("https://provider.test/lookup?upc=7891234567895")).andRespond(withServerError());
         assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7891234567895"));

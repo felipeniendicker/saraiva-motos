@@ -6,6 +6,7 @@ import {
   applyLookupToProductForm,
   hasDuplicateBarcode,
   interpretSalesLookupResponse,
+  isValidGtin,
   lookupProductByBarcode,
   lookupProviderMock,
   normalizeBarcode
@@ -30,6 +31,10 @@ test("46. normalização remove somente espaços acidentais", () => {
 
 test("47. normalização preserva zeros à esquerda", () => {
   assert.equal(normalizeBarcode(" 00123456 "), "00123456");
+});
+
+test("GTIN informado na loja possui dígito verificador válido", () => {
+  assert.equal(isValidGtin("7898635121541"), true);
 });
 
 test("48. produto local é encontrado antes do provider", async () => {
@@ -226,6 +231,29 @@ test("indisponibilidade externa mantém cadastro manual disponível", async () =
   assert.equal(result.status, PRODUCT_LOOKUP_STATUS.ERROR);
   assert.equal(result.barcode, "00123456");
   assert.match(result.message, /indisponível/i);
+});
+
+test("resposta não encontrada permanece diferente de indisponibilidade", async () => {
+  const result = await lookupProductByBarcode("7898635121541", {
+    findLookup: async () => ({ encontrado: false, origem: "NAO_ENCONTRADO", mensagem: null })
+  });
+  assert.equal(result.status, PRODUCT_LOOKUP_STATUS.NOT_FOUND);
+  assert.equal(result.barcode, "7898635121541");
+});
+
+test("erros HTTP do backend exibem indisponibilidade sem perder o código", async () => {
+  for (const status of [401, 403, 429, 500, 503]) {
+    const result = await lookupProductByBarcode("7898635121541", {
+      findLookup: async () => {
+        const error = new Error(`Falha HTTP ${status}`);
+        error.status = status;
+        throw error;
+      }
+    });
+    assert.equal(result.status, PRODUCT_LOOKUP_STATUS.ERROR);
+    assert.equal(result.barcode, "7898635121541");
+    assert.match(result.message, new RegExp(String(status)));
+  }
 });
 
 test("PDV não permite adicionar sugestão externa ao carrinho", () => {

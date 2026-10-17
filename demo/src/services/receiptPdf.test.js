@@ -25,7 +25,22 @@ test("gera PDF a partir dos snapshots históricos da venda", () => {
   assert.equal(content.startsWith("%PDF-1.4"), true);
   assert.match(content, /Cliente hist.rico/);
   assert.match(content, /Pe.a desativada/);
-  assert.match(content, /Desconto: 10%/);
+  assert.match(content, /Desconto \\\(10%\\\)/);
   assert.match(content, /startxref/);
   assert.equal(getSaleReceiptPdfFilename(sale), "comprovante-000001.pdf");
+});
+
+test("comprovante usa layout térmico branco com empresa, tabela e rodapé", () => {
+  const content = new TextDecoder("latin1").decode(buildSaleReceiptPdf({
+    ...sale,
+    operadorEmail: "vendedor@saraiva.test",
+    observacoes: "Conferir aplicação antes da instalação."
+  }, []));
+  assert.match(content, /\/MediaBox \[0 0 226\.77/);
+  assert.match(content, /SARAIVA MOTO PE.AS/);
+  assert.match(content, /COMPROVANTE/);
+  assert.match(content, /Vendedor:/);
+  assert.match(content, /DESCRI..O \/ QTD\. x UNIT\./);
+  assert.match(content, /Obrigado pela prefer.ncia/);
+  assert.doesNotMatch(content, /\bre\s+f\b|\brg\b/);
 });
