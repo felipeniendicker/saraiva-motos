@@ -7,6 +7,7 @@ import {
   IconCustomers,
   IconDashboard,
   IconOrder,
+  IconQuote,
   IconRevenue,
   IconSpark
 } from "./components/icons.jsx";
@@ -18,6 +19,8 @@ import SalesPage from "./pages/SalesPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RemoteScannerPage from "./pages/RemoteScannerPage.jsx";
+import QuotesPage from "./pages/QuotesPage.jsx";
+import ReceivablesPage from "./pages/ReceivablesPage.jsx";
 import { getCurrentUser, login } from "./services/authApi.js";
 import { AUTH_UNAUTHORIZED_EVENT, clearAuthToken, getAuthToken, setAuthToken } from "./services/authSession.js";
 import { DRAWER_ACTIONS, getNextDrawerState } from "./services/navigationDrawer.js";
@@ -34,6 +37,18 @@ const navItems = [
     label: "Vendas",
     description: "Atendimento e histórico",
     icon: <IconOrder />
+  },
+  {
+    to: "/orcamentos",
+    label: "Orçamentos",
+    description: "Propostas e conversão em venda",
+    icon: <IconQuote />
+  },
+  {
+    to: "/contas-receber",
+    label: "Contas a receber",
+    description: "Fiado, parcelas e quitações",
+    icon: <IconRevenue />
   },
   {
     to: "/pecas",
@@ -70,6 +85,11 @@ const pageMeta = {
     title: "Vendas",
     subtitle: "Atendimento no balcão e consulta das vendas realizadas."
   },
+  "/orcamentos": {
+    title: "Orçamentos",
+    subtitle: "Criação, consulta e conversão segura de propostas comerciais."
+  },
+  "/contas-receber": { title: "Contas a receber", subtitle: "Saldos, vencimentos e histórico de pagamentos." },
   "/clientes": {
     title: "Clientes",
     subtitle: "Cadastro unificado para recepção, consulta e atendimento."
@@ -232,6 +252,8 @@ export default function App() {
               element={<DashboardPage />}
             />
             <Route path="/vendas" element={<SalesPage />} />
+            <Route path="/orcamentos" element={<QuotesPage />} />
+            <Route path="/contas-receber" element={<ReceivablesPage />} />
             <Route path="/clientes" element={<CustomersPage />} />
             <Route path="/pecas" element={<ProductsPage />} />
             <Route path="/estoque" element={<InventoryPage />} />

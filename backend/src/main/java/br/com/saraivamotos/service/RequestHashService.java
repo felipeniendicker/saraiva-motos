@@ -20,7 +20,9 @@ public class RequestHashService {
         String itens = request.itens().stream().map(this::item).collect(Collectors.joining(";"));
         return sha256("VENDA|" + value(request.clienteId()) + "|" + itens + "|"
                 + decimal(request.desconto()) + "|" + decimal(request.descontoPercentual()) + "|"
-                + value(request.formaPagamento()) + "|" + text(request.observacoes()));
+                + value(request.formaPagamento()) + "|" + text(request.observacoes()) + "|"
+                + value(request.condicaoPagamento()) + "|" + value(request.vencimento()) + "|"
+                + decimal(request.pagamentoInicial()) + "|" + value(request.formaPagamentoInicial()));
     }
 
     public String entrada(EntradaEstoqueRequest request) {
@@ -39,7 +41,8 @@ public class RequestHashService {
     }
 
     private String item(ItemVendaRequest item) {
-        return value(item.produtoId()) + "," + value(item.quantidade()) + "," + decimal(item.precoUnitario())
+        return value(item.tipoItem()) + "," + value(item.produtoId()) + "," + text(item.descricao())
+                + "," + value(item.quantidade()) + "," + decimal(item.precoUnitario())
                 + "," + decimal(item.precoOriginal()) + "," + value(item.precoAlteradoManualmente());
     }
 

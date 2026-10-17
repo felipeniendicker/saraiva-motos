@@ -2,7 +2,7 @@ import { useState } from "react";
 import EmptyState from "./EmptyState.jsx";
 import SaleDetailsContent, { formatSaleDateTime } from "./SaleDetailsContent.jsx";
 import SaleReceiptPreview from "./SaleReceiptPreview.jsx";
-import { PAYMENT_METHOD_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
+import { getSalePaymentLabel, SALE_STATUS_LABELS } from "../data/domain.js";
 import { formatCurrency } from "../utils/formatters.js";
 import { saveSaleReceiptPdf } from "../services/receiptPdf.js";
 
@@ -20,7 +20,7 @@ export default function CustomerSalesHistory({ customer, sales }) {
         return <button type="button" key={sale.id} className="sale-history-row customer-purchase-card" onClick={() => setSelectedSaleId(sale.id)}>
           <div className="customer-purchase-identity"><span>Venda</span><strong>{sale.numeroVenda}</strong><small>{formatSaleDateTime(sale.dataHora)}</small></div>
           <div className="customer-purchase-secondary"><span>Itens</span><strong>{itemCount}</strong></div>
-          <div className="customer-purchase-secondary"><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
+          <div className="customer-purchase-secondary"><span>Pagamento</span><strong>{getSalePaymentLabel(sale)}</strong></div>
           <div className="customer-purchase-total"><span>Total</span><strong>{formatCurrency(sale.total)}</strong></div>
           <span className={`status-pill ${sale.status === "CONCLUIDA" ? "status-aprovado" : "status-cancelado"}`}>{SALE_STATUS_LABELS[sale.status] || sale.status}</span>
         </button>;
@@ -32,7 +32,10 @@ export default function CustomerSalesHistory({ customer, sales }) {
       <SaleDetailsContent sale={selectedSale} customers={[customer]} />
       <div className="form-actions-pro">
         <button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button>
-        <button type="button" className="secondary-button" onClick={() => saveSaleReceiptPdf(selectedSale, [customer])}>Salvar PDF</button>
+        <button type="button" className="secondary-button" onClick={() => {
+          try { saveSaleReceiptPdf(selectedSale, [customer]); }
+          catch (_failure) { window.alert("Não foi possível salvar o PDF. Verifique as permissões de download do navegador."); }
+        }}>Salvar PDF</button>
       </div>
     </div>}
 

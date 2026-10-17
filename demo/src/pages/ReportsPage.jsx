@@ -4,13 +4,14 @@ import LoadingState from "../components/LoadingState.jsx";
 import Panel from "../components/Panel.jsx";
 import StatCard from "../components/StatCard.jsx";
 import { IconOrder, IconRevenue, IconSpark } from "../components/icons.jsx";
-import { getSalesReport, getStockReport } from "../services/reportsApi.js";
+import { getFinancialReport, getSalesReport, getStockReport } from "../services/reportsApi.js";
+import { saveFinancialReportPdf } from "../services/financialReportPdf.js";
 import { formatAppliedPeriod } from "../services/reportPeriod.js";
 import { formatCurrency } from "../utils/formatters.js";
 
 const initialFilters = { startDate: "", endDate: "" };
 
-function ReportsView({ stock, sales, filters, appliedFilters, onChange, onSubmit }) {
+function ReportsView({ stock, sales, financial, filters, appliedFilters, onChange, onSubmit }) {
   const summary = sales.resumo;
   const topProducts = sales.produtosMaisVendidos || [];
   const hasDraftFilter = Boolean(filters.startDate || filters.endDate);
@@ -23,6 +24,16 @@ function ReportsView({ stock, sales, filters, appliedFilters, onChange, onSubmit
         <StatCard icon={<IconSpark />} label="Produtos cadastrados" value={stock.produtosAtivos} hint={`${stock.unidadesEstoque} unidades em estoque`} tone="default" />
         <StatCard icon={<IconRevenue />} label="Estoque baixo" value={stock.produtosEstoqueBaixo} hint="Itens que precisam de reposição" tone={stock.produtosEstoqueBaixo > 0 ? "red" : "default"} />
       </div>
+    </Panel>
+
+    <Panel title="Relatório financeiro" description="Data da venda e data do recebimento são apuradas separadamente." action={<button className="secondary-button" onClick={()=>saveFinancialReportPdf(financial)}>Salvar PDF</button>}>
+      <div className="stats-grid compact">
+        <StatCard icon={<IconRevenue/>} label="Vendido no período" value={formatCurrency(financial.totalVendido)} hint="Faturamento de vendas concluídas" tone="orange"/>
+        <StatCard icon={<IconRevenue/>} label="Recebido no período" value={formatCurrency(financial.totalRecebido)} hint={`Líquido: ${formatCurrency(financial.totalRecebidoLiquido)}`} tone="green"/>
+        <StatCard icon={<IconRevenue/>} label="Pendente atual" value={formatCurrency(financial.totalPendente)} hint={`Vencido: ${formatCurrency(financial.totalVencido)}`} tone="red"/>
+        <StatCard icon={<IconRevenue/>} label="Estornos" value={formatCurrency(financial.totalEstornos)} hint="Estornos efetivamente registrados" tone="default"/>
+      </div>
+      <div className="cash-financial-summary"><div><span>Dinheiro</span><strong>{formatCurrency(financial.totalDinheiro)}</strong></div><div><span>PIX</span><strong>{formatCurrency(financial.totalPix)}</strong></div><div><span>Débito</span><strong>{formatCurrency(financial.totalCartaoDebito)}</strong></div><div><span>Crédito</span><strong>{formatCurrency(financial.totalCartaoCredito)}</strong></div><div><span>Outros</span><strong>{formatCurrency(financial.totalOutro)}</strong></div></div>
     </Panel>
 
     <Panel title="Relatório de vendas" description="Somente vendas concluídas entram nos indicadores.">
@@ -59,16 +70,16 @@ function ReportsView({ stock, sales, filters, appliedFilters, onChange, onSubmit
 export default function ReportsPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
-  const [state, setState] = useState({ loading: true, stock: null, sales: null, error: "", retryFilters: initialFilters });
+  const [state, setState] = useState({ loading: true, stock: null, sales: null, financial: null, error: "", retryFilters: initialFilters });
 
   async function load(requestedFilters = filters) {
-    setState({ loading: true, stock: null, sales: null, error: "", retryFilters: requestedFilters });
+    setState({ loading: true, stock: null, sales: null, financial: null, error: "", retryFilters: requestedFilters });
     try {
-      const [stock, sales] = await Promise.all([getStockReport(), getSalesReport(requestedFilters)]);
+      const [stock, sales, financial] = await Promise.all([getStockReport(), getSalesReport(requestedFilters), getFinancialReport(requestedFilters)]);
       setAppliedFilters({ ...requestedFilters });
-      setState({ loading: false, stock, sales, error: "", retryFilters: requestedFilters });
+      setState({ loading: false, stock, sales, financial, error: "", retryFilters: requestedFilters });
     } catch (error) {
-      setState({ loading: false, stock: null, sales: null, error: error.message, retryFilters: requestedFilters });
+      setState({ loading: false, stock: null, sales: null, financial: null, error: error.message, retryFilters: requestedFilters });
     }
   }
 
@@ -76,5 +87,5 @@ export default function ReportsPage() {
 
   if (state.loading) return <Panel title="Relatórios" description="Indicadores operacionais da Saraiva Motos."><LoadingState message="Consultando estoque e vendas..." /></Panel>;
   if (state.error) return <Panel title="Relatórios indisponíveis" description="Não foi possível consultar os dados atuais." action={<button type="button" className="primary-button" onClick={() => load(state.retryFilters)}>Tentar novamente</button>}><div className="feedback-message feedback-danger" role="alert">{state.error}</div></Panel>;
-  return <ReportsView stock={state.stock} sales={state.sales} filters={filters} appliedFilters={appliedFilters} onChange={setFilters} onSubmit={(event) => { event.preventDefault(); load(filters); }} />;
+  return <ReportsView stock={state.stock} sales={state.sales} financial={state.financial} filters={filters} appliedFilters={appliedFilters} onChange={setFilters} onSubmit={(event) => { event.preventDefault(); load(filters); }} />;
 }

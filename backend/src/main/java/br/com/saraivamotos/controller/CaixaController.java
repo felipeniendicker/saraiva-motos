@@ -13,6 +13,6 @@ public class CaixaController {
     @GetMapping("/atual") public ResponseEntity<CaixaResponse> atual(){CaixaResponse c=service.atual();return c==null?ResponseEntity.noContent().build():ResponseEntity.ok(c);}
     @GetMapping public List<CaixaResponse> historico(){return service.historico();}
     @PostMapping public ResponseEntity<CaixaResponse> abrir(@Valid @RequestBody AberturaCaixaRequest r,@AuthenticationPrincipal AuthenticatedUser u){return ResponseEntity.status(201).body(service.abrir(r,u));}
-    @PostMapping("/{id}/movimentacoes") public CaixaMovimentacaoResponse movimentar(@PathVariable Long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody MovimentacaoCaixaRequest r,@AuthenticationPrincipal AuthenticatedUser u){CaixaResponse atual=service.atual();if(atual==null||!atual.id().equals(id))throw new br.com.saraivamotos.exception.OperacaoCaixaInvalidaException("Caixa aberto nao corresponde ao informado.");return service.movimentar(key,r,u);}
+    @PostMapping("/{id}/movimentacoes") public CaixaMovimentacaoResponse movimentar(@PathVariable Long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody MovimentacaoCaixaRequest r,@AuthenticationPrincipal AuthenticatedUser u){return service.movimentar(id,key,r,u);}
     @PostMapping("/{id}/fechar") public CaixaResponse fechar(@PathVariable Long id,@Valid @RequestBody FechamentoCaixaRequest r,@AuthenticationPrincipal AuthenticatedUser u){return service.fechar(id,r,u);}
 }

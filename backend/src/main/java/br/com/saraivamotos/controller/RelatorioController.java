@@ -12,4 +12,5 @@ public class RelatorioController {
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataFim) { return service.vendas(dataInicio, dataFim); }
     @GetMapping("/estoque") public EstoqueRelatorioResponse estoque(@RequestParam(defaultValue="false") boolean incluirInativos) { return service.estoque(incluirInativos); }
+    @GetMapping("/financeiro") public RelatorioFinanceiroResponse financeiro(@RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataInicio,@RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate dataFim){return service.financeiro(dataInicio,dataFim);}
 }

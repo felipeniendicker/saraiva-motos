@@ -12,7 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class RelatorioService {
     private final VendaRepository vendas;
     private final ProdutoRepository produtos;
-    public RelatorioService(VendaRepository vendas, ProdutoRepository produtos) { this.vendas = vendas; this.produtos = produtos; }
+    private final RecebimentoRepository recebimentos;private final ContaReceberRepository contas;private final CaixaMovimentacaoRepository movimentos;
+    public RelatorioService(VendaRepository vendas, ProdutoRepository produtos,RecebimentoRepository recebimentos,ContaReceberRepository contas,CaixaMovimentacaoRepository movimentos) { this.vendas = vendas; this.produtos = produtos;this.recebimentos=recebimentos;this.contas=contas;this.movimentos=movimentos; }
 
     @Transactional(readOnly = true)
     public RelatorioVendasResponse vendas(LocalDate dataInicio, LocalDate dataFim) {
@@ -39,6 +40,7 @@ public class RelatorioService {
                 produtos.somarUnidadesAtivas(), dinheiro(produtos.calcularValorEstoqueAtivo()),
                 produtos.buscar(null, incluirInativos).stream().map(ProdutoResponse::from).toList());
     }
+    @Transactional(readOnly=true) public RelatorioFinanceiroResponse financeiro(LocalDate dataInicio,LocalDate dataFim){validarPeriodo(dataInicio,dataFim);LocalDateTime inicio=dataInicio==null?null:dataInicio.atStartOfDay();LocalDateTime fim=dataFim==null?null:dataFim.plusDays(1).atStartOfDay();java.util.Map<br.com.saraivamotos.domain.FormaPagamento,BigDecimal> totais=new java.util.EnumMap<>(br.com.saraivamotos.domain.FormaPagamento.class);for(var f:br.com.saraivamotos.domain.FormaPagamento.values())totais.put(f,BigDecimal.ZERO.setScale(2));vendas.totaisImediatosPorPeriodo(inicio,fim).forEach(r->totais.merge((br.com.saraivamotos.domain.FormaPagamento)r[0],dinheiro((BigDecimal)r[1]),BigDecimal::add));recebimentos.totaisPorPeriodo(inicio,fim).forEach(r->totais.merge((br.com.saraivamotos.domain.FormaPagamento)r[0],dinheiro((BigDecimal)r[1]),BigDecimal::add));BigDecimal recebido=dinheiro(totais.values().stream().reduce(BigDecimal.ZERO,BigDecimal::add));BigDecimal estornos=dinheiro(recebimentos.estornosPorPeriodo(inicio,fim).add(movimentos.devolucoesVendasPorPeriodo(inicio,fim)));Object[] agregado=vendas.resumirConcluidas(inicio,fim).get(0);return new RelatorioFinanceiroResponse(dataInicio,dataFim,dinheiro((BigDecimal)agregado[1]),recebido,totais.get(br.com.saraivamotos.domain.FormaPagamento.DINHEIRO),totais.get(br.com.saraivamotos.domain.FormaPagamento.PIX),totais.get(br.com.saraivamotos.domain.FormaPagamento.CARTAO_DEBITO),totais.get(br.com.saraivamotos.domain.FormaPagamento.CARTAO_CREDITO),totais.get(br.com.saraivamotos.domain.FormaPagamento.OUTRO),dinheiro(contas.totalPendente()),dinheiro(contas.totalVencido()),estornos,dinheiro(recebido.subtract(estornos)));}
     private void validarPeriodo(LocalDate inicio, LocalDate fim) {
         if (inicio != null && fim != null && fim.isBefore(inicio)) throw new IllegalArgumentException("A data final não pode ser anterior à data inicial.");
     }

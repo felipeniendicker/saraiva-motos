@@ -4,7 +4,7 @@ import Panel from "./Panel.jsx";
 import SaleReceiptPreview from "./SaleReceiptPreview.jsx";
 import SaleDetailsContent, { formatSaleDateTime } from "./SaleDetailsContent.jsx";
 import {
-  PAYMENT_METHOD_LABELS,
+  getSalePaymentLabel,
   PRICE_TYPE_LABELS,
   SALE_STATUS_LABELS
 } from "../data/domain.js";
@@ -113,7 +113,7 @@ export default function SalesHistory({ db, onCancelSale }) {
                   <div><strong>{sale.numeroVenda}</strong><span>{formatSaleDateTime(sale.dataHora)}</span></div>
                   <div><strong>{getSaleCustomerLabel(sale, db.customers)}</strong><span>{PRICE_TYPE_LABELS[sale.tipoPrecoUtilizado] || sale.tipoPrecoUtilizado}</span></div>
                   <div><span>Itens</span><strong>{itemCount}</strong></div>
-                  <div><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[sale.formaPagamento] || sale.formaPagamento}</strong></div>
+                  <div><span>Pagamento</span><strong>{getSalePaymentLabel(sale)}</strong></div>
                   <div><span>Total</span><strong>{formatCurrency(sale.total)}</strong></div>
                   <span className={`status-pill ${sale.status === "CONCLUIDA" ? "status-aprovado" : "status-cancelado"}`}>
                     {SALE_STATUS_LABELS[sale.status] || sale.status}
@@ -135,7 +135,10 @@ export default function SalesHistory({ db, onCancelSale }) {
 
           <div className="form-actions-pro sale-detail-actions">
             <button type="button" className="primary-button" onClick={() => setReceiptSaleId(selectedSale.id)}>Imprimir comprovante</button>
-            <button type="button" className="secondary-button" onClick={() => saveSaleReceiptPdf(selectedSale, db.customers)}>Salvar PDF</button>
+            <button type="button" className="secondary-button" onClick={() => {
+              try { saveSaleReceiptPdf(selectedSale, db.customers); }
+              catch (_failure) { window.alert("Não foi possível salvar o PDF. Verifique as permissões de download do navegador."); }
+            }}>Salvar PDF</button>
           </div>
 
           {selectedSale.status !== "CANCELADA" && (showCancellation ? (

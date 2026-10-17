@@ -1,0 +1,2 @@
+import test from "node:test";import assert from "node:assert/strict";import { receivePayment } from "./receivablesApi.js";const response=b=>({ok:true,status:200,json:async()=>b});
+test("recebimento parcial envia chave idempotente",async()=>{let options;global.fetch=async(_u,o)=>{options=o;return response({id:1});};await receivePayment(2,{valor:10,formaPagamento:"PIX"},"b0b40820-2d5d-4af7-b746-e67b141f4030");assert.equal(options.headers["Idempotency-Key"],"b0b40820-2d5d-4af7-b746-e67b141f4030");});

@@ -1,0 +1,2 @@
+import test from "node:test";import assert from "node:assert/strict";import { buildQuotePdf } from "./quotePdf.js";
+test("PDF do orçamento informa que não reserva estoque",()=>{const bytes=buildQuotePdf({numero:"ORC-000001",dataEmissao:"2026-10-16T10:00:00",validade:"2026-10-30",itens:[{quantidade:1,descricaoItem:"Revisao",precoUnitario:100,subtotal:100}],subtotal:100,descontoPercentual:0,desconto:0,total:100});const text=new TextDecoder("latin1").decode(bytes);assert.match(text,/ORCAMENTO/);assert.match(text,/nao reserva estoque/);});

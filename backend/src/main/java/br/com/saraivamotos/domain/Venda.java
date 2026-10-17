@@ -2,6 +2,7 @@ package br.com.saraivamotos.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +45,9 @@ public class Venda {
     private BigDecimal total;
     @Enumerated(EnumType.STRING) @Column(name = "forma_pagamento", nullable = false, length = 30)
     private FormaPagamento formaPagamento;
+    @Enumerated(EnumType.STRING) @Column(name="condicao_pagamento",nullable=false,length=20)
+    private CondicaoPagamento condicaoPagamento=CondicaoPagamento.IMEDIATO;
+    @Column private LocalDate vencimento;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
     private StatusVenda status;
     @Column(name = "data_hora", nullable = false)
@@ -82,6 +86,8 @@ public class Venda {
     public void setTotal(BigDecimal total) { this.total = total; }
     public FormaPagamento getFormaPagamento() { return formaPagamento; }
     public void setFormaPagamento(FormaPagamento formaPagamento) { this.formaPagamento = formaPagamento; }
+    public CondicaoPagamento getCondicaoPagamento(){return condicaoPagamento;} public void setCondicaoPagamento(CondicaoPagamento v){condicaoPagamento=v;}
+    public LocalDate getVencimento(){return vencimento;} public void setVencimento(LocalDate v){vencimento=v;}
     public StatusVenda getStatus() { return status; }
     public void setStatus(StatusVenda status) { this.status = status; }
     public LocalDateTime getDataHora() { return dataHora; }

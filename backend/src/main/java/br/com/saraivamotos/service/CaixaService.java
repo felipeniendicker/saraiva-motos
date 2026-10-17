@@ -24,10 +24,11 @@ public class CaixaService {
     private final CaixaMovimentacaoRepository movimentos;
     private final VendaRepository vendas;
     private final OperacaoIdempotenteRepository operacoes;
+    private final RecebimentoRepository recebimentos;
 
     public CaixaService(CaixaRepository caixas, CaixaMovimentacaoRepository movimentos,
-            VendaRepository vendas, OperacaoIdempotenteRepository operacoes) {
-        this.caixas = caixas; this.movimentos = movimentos; this.vendas = vendas; this.operacoes = operacoes;
+            VendaRepository vendas, OperacaoIdempotenteRepository operacoes, RecebimentoRepository recebimentos) {
+        this.caixas = caixas; this.movimentos = movimentos; this.vendas = vendas; this.operacoes = operacoes;this.recebimentos=recebimentos;
     }
 
     @Transactional
@@ -55,14 +56,18 @@ public class CaixaService {
     }
 
     @Transactional
-    public CaixaMovimentacaoResponse movimentar(String rawKey, MovimentacaoCaixaRequest request, AuthenticatedUser user) {
+    public CaixaMovimentacaoResponse movimentar(Long caixaId, String rawKey, MovimentacaoCaixaRequest request,
+            AuthenticatedUser user) {
         if (request.tipo() != TipoMovimentacaoCaixa.ENTRADA_AVULSA && request.tipo() != TipoMovimentacaoCaixa.SAIDA_AVULSA)
             throw new OperacaoCaixaInvalidaException("Somente entradas e saidas avulsas podem ser registradas manualmente.");
         String chave = uuid(rawKey);
-        String hash = hash(request.tipo() + "|" + dinheiro(request.valor()) + "|" + request.descricao().trim());
+        String hash = hash(caixaId + "|" + request.tipo() + "|" + dinheiro(request.valor()) + "|" + request.descricao().trim());
         CaixaMovimentacao existente = movimentos.findByChaveIdempotencia(chave).orElse(null);
         if (existente != null) return movimentoExistente(existente, hash);
-        Caixa caixa = caixaAbertoBloqueado();
+        Caixa caixa = caixas.findByIdForUpdate(caixaId)
+                .orElseThrow(() -> new OperacaoCaixaInvalidaException("Caixa nao encontrado."));
+        if (caixa.getStatus() != StatusCaixa.ABERTO)
+            throw new OperacaoCaixaInvalidaException("O caixa informado nao esta aberto.");
         // Outra requisicao com a mesma chave pode ter concluido enquanto esta aguardava
         // o lock do caixa. A segunda consulta evita responder erro e, principalmente,
         // evita uma segunda movimentacao em execucoes concorrentes.
@@ -111,6 +116,20 @@ public class CaixaService {
     }
 
     @Transactional
+    public void vincularVendaSemRecebimento(VendaResponse response){Caixa caixa=caixaAbertoBloqueado();Venda venda=vendas.findById(response.id()).orElseThrow();venda.setCaixaId(caixa.getId());vendas.save(venda);}
+
+    @Transactional
+    public Recebimento registrarRecebimento(Recebimento recebimento,AuthenticatedUser user){
+        Caixa caixa=caixaAbertoBloqueado();recebimento.setCaixaId(caixa.getId());Recebimento salvo=recebimentos.saveAndFlush(recebimento);
+        if(salvo.getFormaPagamento()==FormaPagamento.DINHEIRO){String chave=UUID.nameUUIDFromBytes(("CAIXA-RECEBIMENTO-"+salvo.getId()).getBytes(StandardCharsets.UTF_8)).toString();
+            CaixaMovimentacao movimento=salvarMovimento(caixa.getId(),TipoMovimentacaoCaixa.RECEBIMENTO_DINHEIRO,salvo.getValor(),"Recebimento da venda "+salvo.getConta().getVendaId(),null,chave,hash("RECEBIMENTO|"+salvo.getId()),user);movimento.setRecebimentoId(salvo.getId());movimentos.save(movimento);}return salvo;}
+
+    @Transactional
+    public void registrarEstornoRecebimento(Recebimento recebimento,AuthenticatedUser user){Caixa caixa=caixaAbertoBloqueado();recebimento.setCaixaEstornoId(caixa.getId());recebimentos.save(recebimento);
+        if(recebimento.getFormaPagamento()==FormaPagamento.DINHEIRO){String chave=UUID.nameUUIDFromBytes(("CAIXA-ESTORNO-RECEBIMENTO-"+recebimento.getId()).getBytes(StandardCharsets.UTF_8)).toString();
+            if(movimentos.findByChaveIdempotencia(chave).isPresent())return;CaixaMovimentacao movimento=salvarMovimento(caixa.getId(),TipoMovimentacaoCaixa.ESTORNO_RECEBIMENTO_DINHEIRO,recebimento.getValor(),"Estorno de recebimento da venda "+recebimento.getConta().getVendaId(),null,chave,hash("ESTORNO-RECEBIMENTO|"+recebimento.getId()),user);movimento.setRecebimentoId(recebimento.getId());movimentos.save(movimento);}}
+
+    @Transactional
     public void registrarCancelamento(VendaResponse response, AuthenticatedUser user) {
         if (response.formaPagamento() != FormaPagamento.DINHEIRO) return;
         Caixa caixa = caixaAbertoBloqueado();
@@ -139,28 +158,55 @@ public class CaixaService {
         return movimentos.saveAndFlush(m);
     }
     private CaixaResponse resposta(Caixa c) {
-        Map<FormaPagamento, BigDecimal> t = c.getStatus() == StatusCaixa.FECHADO ? totaisFechados(c) : totais(c.getId());
-        BigDecimal esperado = c.getStatus() == StatusCaixa.FECHADO ? c.getSaldoEsperadoFechamento() : saldoEsperado(c);
+        Map<FormaPagamento, BigDecimal> t = totais(c.getId());
+        List<CaixaMovimentacao> registros = movimentos.findByCaixaIdOrderByDataHoraDescIdDesc(c.getId());
+        ResumoMovimentos resumo = resumir(registros);
+        BigDecimal esperado = c.getStatus() == StatusCaixa.FECHADO
+                ? c.getSaldoEsperadoFechamento()
+                : dinheiro(c.getValorInicial().add(resumo.saldoFisico()));
+        BigDecimal recebido = t.values().stream().reduce(BigDecimal.ZERO.setScale(2), BigDecimal::add);
+        BigDecimal estornos = dinheiro(resumo.estornos().add(zero(recebimentos.totalEstornosNoCaixa(c.getId()))));
+        BigDecimal liquido = dinheiro(recebido.subtract(estornos));
         return new CaixaResponse(c.getId(), c.getStatus(), c.getValorInicial(), esperado, c.getValorContado(),
                 c.getDiferencaFechamento(), c.getDataAbertura(), c.getDataFechamento(), c.getOperadorAberturaEmail(),
                 c.getOperadorFechamentoEmail(), t.get(FormaPagamento.DINHEIRO), t.get(FormaPagamento.PIX),
                 t.get(FormaPagamento.CARTAO_DEBITO), t.get(FormaPagamento.CARTAO_CREDITO), t.get(FormaPagamento.OUTRO),
-                movimentos.findByCaixaIdOrderByDataHoraDescIdDesc(c.getId()).stream().map(CaixaMovimentacaoResponse::from).toList());
+                dinheiro(recebido), estornos, liquido, resumo.entradasAvulsas(), resumo.saidasAvulsas(),
+                registros.stream().map(CaixaMovimentacaoResponse::from).toList());
     }
-    private BigDecimal saldoEsperado(Caixa c) { return dinheiro(c.getValorInicial().add(movimentos.saldoMovimentos(c.getId()))); }
+    private BigDecimal saldoEsperado(Caixa c) {
+        return dinheiro(c.getValorInicial().add(resumir(
+                movimentos.findByCaixaIdOrderByDataHoraDescIdDesc(c.getId())).saldoFisico()));
+    }
     private Map<FormaPagamento, BigDecimal> totais(Long caixaId) {
         Map<FormaPagamento, BigDecimal> r = zeros();
         vendas.totaisPorFormaNoCaixa(caixaId).forEach(row -> r.put((FormaPagamento) row[0], dinheiro((BigDecimal) row[1])));
+        recebimentos.totaisPorFormaNoCaixa(caixaId).forEach(row -> r.merge((FormaPagamento)row[0],dinheiro((BigDecimal)row[1]),BigDecimal::add));
         return r;
     }
-    private Map<FormaPagamento, BigDecimal> totaisFechados(Caixa c) {
-        Map<FormaPagamento, BigDecimal> r = zeros(); r.put(FormaPagamento.DINHEIRO, zero(c.getTotalDinheiro()));
-        r.put(FormaPagamento.PIX, zero(c.getTotalPix())); r.put(FormaPagamento.CARTAO_DEBITO, zero(c.getTotalCartaoDebito()));
-        r.put(FormaPagamento.CARTAO_CREDITO, zero(c.getTotalCartaoCredito())); r.put(FormaPagamento.OUTRO, zero(c.getTotalOutro())); return r;
+    private ResumoMovimentos resumir(List<CaixaMovimentacao> registros) {
+        BigDecimal saldoFisico = BigDecimal.ZERO.setScale(2);
+        BigDecimal estornos = BigDecimal.ZERO.setScale(2);
+        BigDecimal entradas = BigDecimal.ZERO.setScale(2);
+        BigDecimal saidas = BigDecimal.ZERO.setScale(2);
+        for (CaixaMovimentacao movimento : registros) {
+            BigDecimal valor = zero(movimento.getValor());
+            switch (movimento.getTipo()) {
+                case ENTRADA_AVULSA -> { entradas = entradas.add(valor); saldoFisico = saldoFisico.add(valor); }
+                case SAIDA_AVULSA -> { saidas = saidas.add(valor); saldoFisico = saldoFisico.subtract(valor); }
+                case VENDA_DINHEIRO -> saldoFisico = saldoFisico.add(valor);
+                case DEVOLUCAO_VENDA_DINHEIRO -> { estornos = estornos.add(valor); saldoFisico = saldoFisico.subtract(valor); }
+                case RECEBIMENTO_DINHEIRO -> saldoFisico = saldoFisico.add(valor);
+                case ESTORNO_RECEBIMENTO_DINHEIRO -> saldoFisico = saldoFisico.subtract(valor);
+            }
+        }
+        return new ResumoMovimentos(dinheiro(saldoFisico), dinheiro(estornos), dinheiro(entradas), dinheiro(saidas));
     }
     private Map<FormaPagamento, BigDecimal> zeros() { Map<FormaPagamento, BigDecimal> r = new EnumMap<>(FormaPagamento.class); for (FormaPagamento f:FormaPagamento.values()) r.put(f, BigDecimal.ZERO.setScale(2)); return r; }
     private BigDecimal zero(BigDecimal v){return v == null ? BigDecimal.ZERO.setScale(2) : v;}
     private BigDecimal dinheiro(BigDecimal v){return v.setScale(2, RoundingMode.HALF_UP);}
     private String uuid(String raw){try{return UUID.fromString(raw).toString();}catch(Exception e){throw new IllegalArgumentException("Idempotency-Key deve ser um UUID valido.");}}
     private String hash(String value){try{byte[] b=MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));return java.util.HexFormat.of().formatHex(b);}catch(Exception e){throw new IllegalStateException(e);}}
+    private record ResumoMovimentos(BigDecimal saldoFisico, BigDecimal estornos,
+            BigDecimal entradasAvulsas, BigDecimal saidasAvulsas) {}
 }

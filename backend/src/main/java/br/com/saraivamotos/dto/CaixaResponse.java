@@ -7,4 +7,6 @@ public record CaixaResponse(Long id, StatusCaixa status, BigDecimal valorInicial
         BigDecimal valorContado, BigDecimal diferenca, LocalDateTime dataAbertura, LocalDateTime dataFechamento,
         String operadorAberturaEmail, String operadorFechamentoEmail, BigDecimal totalDinheiro,
         BigDecimal totalPix, BigDecimal totalCartaoDebito, BigDecimal totalCartaoCredito, BigDecimal totalOutro,
+        BigDecimal totalRecebido, BigDecimal totalEstornos, BigDecimal totalRecebidoLiquido,
+        BigDecimal totalEntradasAvulsas, BigDecimal totalSaidasAvulsas,
         List<CaixaMovimentacaoResponse> movimentacoes) {}

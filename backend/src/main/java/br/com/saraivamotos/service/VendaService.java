@@ -19,6 +19,8 @@ import br.com.saraivamotos.domain.Produto;
 import br.com.saraivamotos.domain.StatusVenda;
 import br.com.saraivamotos.domain.TipoMovimentacaoEstoque;
 import br.com.saraivamotos.domain.TipoPreco;
+import br.com.saraivamotos.domain.TipoItem;
+import br.com.saraivamotos.domain.CondicaoPagamento;
 import br.com.saraivamotos.domain.Venda;
 import br.com.saraivamotos.dto.CancelamentoVendaRequest;
 import br.com.saraivamotos.dto.ItemVendaRequest;
@@ -66,6 +68,15 @@ public class VendaService {
         BigDecimal subtotalVenda = BigDecimal.ZERO.setScale(ESCALA);
         List<ItemCalculado> calculados = new ArrayList<>();
         for (ItemVendaRequest itemRequest : itensRequest) {
+            if (tipoItem(itemRequest) == TipoItem.SERVICO) {
+                BigDecimal precoPraticado = dinheiro(itemRequest.precoUnitario());
+                BigDecimal precoOriginal = dinheiro(itemRequest.precoOriginal() == null
+                        ? itemRequest.precoUnitario() : itemRequest.precoOriginal());
+                BigDecimal subtotalItem = dinheiro(precoPraticado.multiply(BigDecimal.valueOf(itemRequest.quantidade())));
+                calculados.add(new ItemCalculado(itemRequest, null, precoOriginal, precoPraticado, subtotalItem));
+                subtotalVenda = dinheiro(subtotalVenda.add(subtotalItem));
+                continue;
+            }
             Produto produto = produtos.get(itemRequest.produtoId());
             validarProdutoParaVenda(produto, itemRequest.quantidade());
             BigDecimal precoOriginal = dinheiro(tipoPreco == TipoPreco.REVENDA ? produto.getPrecoRevenda() : produto.getPrecoVarejo());
@@ -84,6 +95,17 @@ public class VendaService {
             throw new IllegalArgumentException("O desconto não pode ser maior que o subtotal da venda.");
         }
 
+        BigDecimal totalVenda = dinheiro(subtotalVenda.subtract(desconto));
+        if (condicao(request) == CondicaoPagamento.A_PRAZO) {
+            if (cliente == null) throw new OperacaoVendaInvalidaException("Cliente cadastrado e obrigatorio para venda a prazo.");
+            if (request.vencimento() == null || request.vencimento().isBefore(LocalDate.now()))
+                throw new OperacaoVendaInvalidaException("Informe um vencimento valido para a venda a prazo.");
+            BigDecimal inicial = request.pagamentoInicial() == null ? BigDecimal.ZERO : dinheiro(request.pagamentoInicial());
+            if (inicial.compareTo(totalVenda) > 0) throw new OperacaoVendaInvalidaException("O pagamento inicial nao pode superar o total da venda.");
+            if (inicial.signum() > 0 && request.formaPagamentoInicial() == null)
+                throw new OperacaoVendaInvalidaException("Informe a forma do pagamento inicial.");
+        }
+
         Venda venda = novaVenda(request, cliente, tipoPreco, subtotalVenda, desconto, descontoPercentual);
         venda = vendaRepository.saveAndFlush(venda);
         venda.setNumeroVenda(String.format("%06d", venda.getId()));
@@ -93,6 +115,7 @@ public class VendaService {
             ItemVenda item = criarItem(calculado);
             venda.adicionarItem(item);
             Produto produto = calculado.produto();
+            if (produto == null) continue;
             int saldoAnterior = produto.getQuantidadeEstoque();
             int saldoPosterior = saldoAnterior - calculado.request().quantidade();
             produto.setQuantidadeEstoque(saldoPosterior);
@@ -140,10 +163,12 @@ public class VendaService {
             throw new OperacaoVendaInvalidaException("A venda já está cancelada.");
         }
 
-        List<Long> ids = venda.getItens().stream().map(item -> item.getProduto().getId()).distinct().sorted().toList();
+        List<Long> ids = venda.getItens().stream().filter(item -> item.getProduto() != null)
+                .map(item -> item.getProduto().getId()).distinct().sorted().toList();
         Map<Long, Produto> produtos = bloquearProdutos(ids);
         List<MovimentacaoEstoque> movimentacoes = new ArrayList<>();
         for (ItemVenda item : venda.getItens()) {
+            if (item.getProduto() == null) continue;
             Produto produto = produtos.get(item.getProduto().getId());
             int saldoAnterior = produto.getQuantidadeEstoque();
             int saldoPosterior;
@@ -175,7 +200,12 @@ public class VendaService {
         }
         if (request.formaPagamento() == null) throw new IllegalArgumentException("A forma de pagamento é obrigatória.");
         for (ItemVendaRequest item : request.itens()) {
-            if (item.produtoId() == null) throw new IllegalArgumentException("O produto do item é obrigatório.");
+            if (tipoItem(item) == TipoItem.PRODUTO && item.produtoId() == null)
+                throw new IllegalArgumentException("O produto do item é obrigatório.");
+            if (tipoItem(item) == TipoItem.SERVICO && (item.descricao() == null || item.descricao().isBlank()))
+                throw new IllegalArgumentException("A descrição do serviço é obrigatória.");
+            if (item.descricao() != null && item.descricao().trim().length() > 180)
+                throw new IllegalArgumentException("A descrição do item deve possuir no máximo 180 caracteres.");
             if (item.quantidade() == null || item.quantidade() <= 0) throw new IllegalArgumentException("A quantidade deve ser maior que zero.");
             if (item.precoUnitario() == null || item.precoUnitario().signum() < 0) throw new IllegalArgumentException("O preço praticado não pode ser negativo.");
         }
@@ -184,6 +214,7 @@ public class VendaService {
     private List<Long> validarEOrdenarIdsUnicos(List<ItemVendaRequest> itens) {
         Set<Long> unicos = new HashSet<>();
         for (ItemVendaRequest item : itens) {
+            if (tipoItem(item) == TipoItem.SERVICO) continue;
             if (!unicos.add(item.produtoId())) throw new IllegalArgumentException("O mesmo produto não pode aparecer mais de uma vez na venda.");
         }
         return unicos.stream().sorted().toList();
@@ -217,6 +248,8 @@ public class VendaService {
         venda.setDescontoPercentual(descontoPercentual);
         venda.setTotal(dinheiro(subtotal.subtract(desconto)));
         venda.setFormaPagamento(request.formaPagamento());
+        venda.setCondicaoPagamento(condicao(request));
+        venda.setVencimento(condicao(request)==CondicaoPagamento.A_PRAZO?request.vencimento():null);
         venda.setStatus(StatusVenda.CONCLUIDA);
         venda.setDataHora(LocalDateTime.now());
         venda.setObservacoes(normalizarOpcional(request.observacoes()));
@@ -234,10 +267,16 @@ public class VendaService {
 
     private ItemVenda criarItem(ItemCalculado calculado) {
         ItemVenda item = new ItemVenda();
+        item.setTipoItem(tipoItem(calculado.request()));
         item.setProduto(calculado.produto());
-        String codigo = calculado.produto().getCodigoReferencia();
-        item.setCodigoProduto(codigo == null || codigo.isBlank() ? "SEM-REFERENCIA" : codigo);
-        item.setDescricaoProduto(calculado.produto().getNome());
+        if (calculado.produto() == null) {
+            item.setCodigoProduto("SERVICO");
+            item.setDescricaoProduto(calculado.request().descricao().trim());
+        } else {
+            String codigo = calculado.produto().getCodigoReferencia();
+            item.setCodigoProduto(codigo == null || codigo.isBlank() ? "SEM-REFERENCIA" : codigo);
+            item.setDescricaoProduto(calculado.produto().getNome());
+        }
         item.setQuantidade(calculado.request().quantidade());
         item.setPrecoOriginal(calculado.precoOriginal());
         item.setPrecoUnitario(calculado.precoPraticado());
@@ -263,6 +302,8 @@ public class VendaService {
     private BigDecimal dinheiro(BigDecimal valor) { return valor.setScale(ESCALA, RoundingMode.HALF_UP); }
     private BigDecimal percentual(BigDecimal valor) { return valor == null ? null : valor.setScale(4, RoundingMode.HALF_UP); }
     private String normalizarOpcional(String valor) { return valor == null || valor.isBlank() ? null : valor.trim(); }
+    private TipoItem tipoItem(ItemVendaRequest item) { return item.tipoItem() == null ? TipoItem.PRODUTO : item.tipoItem(); }
+    private CondicaoPagamento condicao(VendaRequest request) { return request.condicaoPagamento()==null?CondicaoPagamento.IMEDIATO:request.condicaoPagamento(); }
 
     private void validarPrecoAtual(ItemVendaRequest request, Produto produto, BigDecimal precoAtual) {
         // Payloads anteriores à flag são tratados como negociação para manter compatibilidade

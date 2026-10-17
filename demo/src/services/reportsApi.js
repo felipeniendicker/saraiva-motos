@@ -8,3 +8,4 @@ export function getSalesReport({ startDate = "", endDate = "" } = {}) {
 }
 export function getTopProductsReport(filters = {}) { return getSalesReport(filters).then((data) => data.produtosMaisVendidos); }
 export function getStockReport({ includeInactive = false } = {}) { return request(`/api/relatorios/estoque${includeInactive ? "?incluirInativos=true" : ""}`); }
+export function getFinancialReport({ startDate = "", endDate = "" } = {}) { const params=new URLSearchParams();if(startDate)params.set("dataInicio",startDate);if(endDate)params.set("dataFim",endDate);const query=params.toString();return request(`/api/relatorios/financeiro${query?`?${query}`:""}`); }

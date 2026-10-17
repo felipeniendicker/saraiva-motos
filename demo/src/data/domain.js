@@ -24,15 +24,22 @@ export const PAYMENT_METHODS = [
   "PIX",
   "CARTAO_DEBITO",
   "CARTAO_CREDITO",
-  "OUTRO"
+  "OUTRO",
+  "A_PRAZO"
 ];
 export const PAYMENT_METHOD_LABELS = {
   DINHEIRO: "Dinheiro",
   PIX: "Pix",
   CARTAO_DEBITO: "Cartão de débito",
   CARTAO_CREDITO: "Cartão de crédito",
-  OUTRO: "Outro"
+  OUTRO: "Outro",
+  A_PRAZO: "A prazo"
 };
+
+export function getSalePaymentLabel(sale) {
+  if (sale?.condicaoPagamento === "A_PRAZO") return PAYMENT_METHOD_LABELS.A_PRAZO;
+  return PAYMENT_METHOD_LABELS[sale?.formaPagamento] || sale?.formaPagamento;
+}
 export const SALE_STATUSES = ["CONCLUIDA", "CANCELADA"];
 export const SALE_STATUS_LABELS = {
   CONCLUIDA: "Concluída",

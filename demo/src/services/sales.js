@@ -119,6 +119,7 @@ export function getSaleReceiptData(sale, customers = []) {
     clienteNome: sale.clienteNome || currentCustomer?.nomeRazaoSocial || (sale.clienteId ? "Cliente não encontrado" : null),
     clienteTipo: sale.clienteTipo || currentCustomer?.tipoCliente || null,
     tipoPrecoUtilizado: sale.tipoPrecoUtilizado, formaPagamento: sale.formaPagamento,
+    condicaoPagamento: sale.condicaoPagamento || "IMEDIATO", vencimento: sale.vencimento || null,
     itens: sale.itens.map((item) => ({ id: item.id, descricaoProduto: item.descricaoProduto, codigoProduto: item.codigoProduto, quantidade: item.quantidade, precoUnitario: item.precoUnitario, subtotal: item.subtotal })),
     subtotal: sale.subtotal, desconto: sale.desconto, descontoPercentual: getSaleDiscountPercentage(sale), total: sale.total, observacoes: sale.observacoes,
     dataCancelamento: sale.dataCancelamento || null, motivoCancelamento: sale.motivoCancelamento || ""

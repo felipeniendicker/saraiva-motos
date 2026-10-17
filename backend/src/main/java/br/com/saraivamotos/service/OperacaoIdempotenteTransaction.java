@@ -20,13 +20,16 @@ public class OperacaoIdempotenteTransaction {
     private final VendaService vendaService;
     private final EstoqueService estoqueService;
     private final CaixaService caixaService;
+    private final ContaReceberService contaReceberService;
 
     public OperacaoIdempotenteTransaction(OperacaoIdempotenteRepository repository,
-            VendaService vendaService, EstoqueService estoqueService, CaixaService caixaService) {
+            VendaService vendaService, EstoqueService estoqueService, CaixaService caixaService,
+            ContaReceberService contaReceberService) {
         this.repository = repository;
         this.vendaService = vendaService;
         this.estoqueService = estoqueService;
         this.caixaService = caixaService;
+        this.contaReceberService = contaReceberService;
     }
 
     @Transactional
@@ -38,7 +41,10 @@ public class OperacaoIdempotenteTransaction {
     public VendaResponse venda(String chave, String hash, VendaRequest request, AuthenticatedUser user) {
         OperacaoIdempotente operacao = iniciar(chave, "VENDA", hash);
         VendaResponse response = vendaService.criar(request);
-        if (user != null) caixaService.vincularVenda(response, user);
+        if (user != null && response.condicaoPagamento() == br.com.saraivamotos.domain.CondicaoPagamento.A_PRAZO) {
+            caixaService.vincularVendaSemRecebimento(response);
+            contaReceberService.criarParaVenda(response, request, chave, user);
+        } else if (user != null) caixaService.vincularVenda(response, user);
         operacao.setVendaId(response.id());
         repository.save(operacao);
         return response;

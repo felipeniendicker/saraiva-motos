@@ -1,6 +1,6 @@
 import {
   CUSTOMER_TYPE_LABELS,
-  PAYMENT_METHOD_LABELS,
+  getSalePaymentLabel,
   PRICE_TYPE_LABELS
 } from "../data/domain.js";
 import { getSaleReceiptData } from "../services/sales.js";
@@ -51,7 +51,7 @@ export default function SaleReceipt({ sale, customers = [] }) {
         <p><span>Subtotal</span><strong>{formatCurrency(receipt.subtotal)}</strong></p>
         {receipt.desconto > 0 && <p><span>Desconto ({Number(receipt.descontoPercentual).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)</span><strong>{formatCurrency(receipt.desconto)}</strong></p>}
         <p className="receipt-total"><span>TOTAL</span><strong>{formatCurrency(receipt.total)}</strong></p>
-        <p><span>Pagamento</span><strong>{PAYMENT_METHOD_LABELS[receipt.formaPagamento] || receipt.formaPagamento}</strong></p>
+        <p><span>Pagamento</span><strong>{getSalePaymentLabel(receipt)}</strong></p>
       </section>
 
       {receipt.observacoes && (

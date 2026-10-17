@@ -11,6 +11,9 @@ import br.com.saraivamotos.repository.CaixaRepository;
 import br.com.saraivamotos.repository.CaixaMovimentacaoRepository;
 import br.com.saraivamotos.repository.LeitorSessaoRepository;
 import br.com.saraivamotos.repository.LeitorLeituraRepository;
+import br.com.saraivamotos.repository.OrcamentoRepository;
+import br.com.saraivamotos.repository.ContaReceberRepository;
+import br.com.saraivamotos.repository.RecebimentoRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -56,5 +59,8 @@ class SaraivaMotosApplicationTests {
         @Bean CaixaMovimentacaoRepository caixaMovimentacaoRepository() { return mock(CaixaMovimentacaoRepository.class); }
         @Bean LeitorSessaoRepository leitorSessaoRepository() { return mock(LeitorSessaoRepository.class); }
         @Bean LeitorLeituraRepository leitorLeituraRepository() { return mock(LeitorLeituraRepository.class); }
+        @Bean OrcamentoRepository orcamentoRepository() { return mock(OrcamentoRepository.class); }
+        @Bean ContaReceberRepository contaReceberRepository() { return mock(ContaReceberRepository.class); }
+        @Bean RecebimentoRepository recebimentoRepository() { return mock(RecebimentoRepository.class); }
     }
 }

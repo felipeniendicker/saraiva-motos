@@ -19,8 +19,11 @@ public class ItemVenda {
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "venda_id", nullable = false)
     private Venda venda;
-    @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "produto_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "produto_id")
     private Produto produto;
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "tipo_item", nullable = false, length = 20)
+    private TipoItem tipoItem = TipoItem.PRODUTO;
     @Column(name = "codigo_produto", nullable = false, length = 100)
     private String codigoProduto;
     @Column(name = "descricao_produto", nullable = false, length = 180)
@@ -42,6 +45,8 @@ public class ItemVenda {
     public void setVenda(Venda venda) { this.venda = venda; }
     public Produto getProduto() { return produto; }
     public void setProduto(Produto produto) { this.produto = produto; }
+    public TipoItem getTipoItem() { return tipoItem; }
+    public void setTipoItem(TipoItem tipoItem) { this.tipoItem = tipoItem; }
     public String getCodigoProduto() { return codigoProduto; }
     public void setCodigoProduto(String codigoProduto) { this.codigoProduto = codigoProduto; }
     public String getDescricaoProduto() { return descricaoProduto; }

@@ -18,4 +18,6 @@ public interface CaixaMovimentacaoRepository extends JpaRepository<CaixaMoviment
         FROM CaixaMovimentacao m WHERE m.caixaId = :caixaId
         """)
     BigDecimal saldoMovimentos(@Param("caixaId") Long caixaId);
+    @Query("SELECT COALESCE(SUM(m.valor),0) FROM CaixaMovimentacao m WHERE m.tipo=br.com.saraivamotos.domain.TipoMovimentacaoCaixa.DEVOLUCAO_VENDA_DINHEIRO AND (:inicio IS NULL OR m.dataHora>=:inicio) AND (:fim IS NULL OR m.dataHora<:fim)")
+    BigDecimal devolucoesVendasPorPeriodo(@Param("inicio")java.time.LocalDateTime inicio,@Param("fim")java.time.LocalDateTime fim);
 }

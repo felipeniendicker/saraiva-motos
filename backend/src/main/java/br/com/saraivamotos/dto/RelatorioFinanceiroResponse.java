@@ -1,0 +1,2 @@
+package br.com.saraivamotos.dto;import java.math.BigDecimal;import java.time.LocalDate;
+public record RelatorioFinanceiroResponse(LocalDate dataInicio,LocalDate dataFim,BigDecimal totalVendido,BigDecimal totalRecebido,BigDecimal totalDinheiro,BigDecimal totalPix,BigDecimal totalCartaoDebito,BigDecimal totalCartaoCredito,BigDecimal totalOutro,BigDecimal totalPendente,BigDecimal totalVencido,BigDecimal totalEstornos,BigDecimal totalRecebidoLiquido){}

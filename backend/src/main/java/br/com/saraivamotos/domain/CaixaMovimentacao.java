@@ -12,6 +12,7 @@ public class CaixaMovimentacao {
     @Column(nullable=false, precision=15, scale=2) private BigDecimal valor;
     @Column(nullable=false, length=255) private String descricao;
     @Column(name="venda_id") private Long vendaId;
+    @Column(name="recebimento_id") private Long recebimentoId;
     @Column(name="chave_idempotencia", nullable=false, unique=true, length=36, columnDefinition="CHAR(36)") private String chaveIdempotencia;
     @Column(name="request_hash", nullable=false, length=64, columnDefinition="CHAR(64)") private String requestHash;
     @Column(name="operador_id", nullable=false) private Long operadorId;
@@ -23,6 +24,7 @@ public class CaixaMovimentacao {
     public BigDecimal getValor(){return valor;} public void setValor(BigDecimal v){valor=v;}
     public String getDescricao(){return descricao;} public void setDescricao(String v){descricao=v;}
     public Long getVendaId(){return vendaId;} public void setVendaId(Long v){vendaId=v;}
+    public Long getRecebimentoId(){return recebimentoId;} public void setRecebimentoId(Long v){recebimentoId=v;}
     public String getChaveIdempotencia(){return chaveIdempotencia;} public void setChaveIdempotencia(String v){chaveIdempotencia=v;}
     public String getRequestHash(){return requestHash;} public void setRequestHash(String v){requestHash=v;}
     public Long getOperadorId(){return operadorId;} public void setOperadorId(Long v){operadorId=v;}

@@ -43,6 +43,9 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [initialPayment, setInitialPayment] = useState("0");
+  const [initialPaymentMethod, setInitialPaymentMethod] = useState("");
   const [notes, setNotes] = useState("");
   const [notice, setNotice] = useState(null);
   const [lastSale, setLastSale] = useState(null);
@@ -202,6 +205,18 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
       revealSummary(paymentRef);
       return;
     }
+    if (paymentMethod === "A_PRAZO" && !selectedCustomer) {
+      showError("Selecione um cliente cadastrado para a venda a prazo.");
+      return;
+    }
+    if (paymentMethod === "A_PRAZO" && !dueDate) {
+      showError("Informe o vencimento da venda a prazo.");
+      return;
+    }
+    if (paymentMethod === "A_PRAZO" && Number(initialPayment) > 0 && !initialPaymentMethod) {
+      showError("Informe a forma do pagamento inicial.");
+      return;
+    }
     if (!Number.isFinite(Number(discount)) || Number(discount) < 0 || Number(discount) > 100) {
       showError("Informe um desconto entre 0% e 100%.");
       revealSummary(discountRef);
@@ -258,7 +273,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
         itens: items,
         descontoPercentual: Number(discount),
         desconto: totals.desconto,
-        formaPagamento: paymentMethod,
+        formaPagamento: paymentMethod === "A_PRAZO" ? "OUTRO" : paymentMethod,
+        condicaoPagamento: paymentMethod === "A_PRAZO" ? "A_PRAZO" : "IMEDIATO",
+        vencimento: paymentMethod === "A_PRAZO" ? dueDate : null,
+        pagamentoInicial: paymentMethod === "A_PRAZO" ? Number(initialPayment || 0) : null,
+        formaPagamentoInicial: paymentMethod === "A_PRAZO" && Number(initialPayment) > 0 ? initialPaymentMethod : null,
         observacoes: notes
       }));
     } catch (error) {
@@ -279,6 +298,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
     setCustomerSearch("");
     setDiscount("0");
     setPaymentMethod("");
+    setDueDate("");setInitialPayment("0");setInitialPaymentMethod("");
     setNotes("");
     setSearch("");
     setConfirmationOpen(false);
@@ -451,6 +471,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
               Desconto (%)
               <input ref={discountRef} type="number" inputMode="decimal" min="0" max="100" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} />
             </label>
+            {paymentMethod === "A_PRAZO" && <div className="credit-sale-fields">
+              <label>Vencimento<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>
+              <label>Pagamento inicial<input type="number" min="0" max={totals.total} step="0.01" value={initialPayment} onChange={(event) => setInitialPayment(event.target.value)} /></label>
+              {Number(initialPayment) > 0 && <label>Forma do pagamento inicial<select value={initialPaymentMethod} onChange={(event) => setInitialPaymentMethod(event.target.value)}><option value="">Selecione</option>{PAYMENT_METHODS.filter((method) => method !== "A_PRAZO").map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}</select></label>}
+            </div>}
             <div className="summary-line"><span>Valor descontado ({Number(discount || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)</span><strong>{formatCurrency(totals.desconto)}</strong></div>
             <div className="summary-total"><span>Total</span><strong>{formatCurrency(totals.total)}</strong></div>
             <label>
@@ -578,7 +603,11 @@ function BackendSalesPage() {
       desconto: draft.desconto,
       descontoPercentual: draft.descontoPercentual,
       formaPagamento: draft.formaPagamento,
-      observacoes: draft.observacoes
+      observacoes: draft.observacoes,
+      condicaoPagamento: draft.condicaoPagamento,
+      vencimento: draft.vencimento,
+      pagamentoInicial: draft.pagamentoInicial,
+      formaPagamentoInicial: draft.formaPagamentoInicial
     };
     const attempt = getOperationAttempt(saleAttemptRef.current, payload);
     saleAttemptRef.current = attempt;

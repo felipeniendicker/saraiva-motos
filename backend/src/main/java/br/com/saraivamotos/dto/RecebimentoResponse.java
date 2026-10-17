@@ -1,0 +1,2 @@
+package br.com.saraivamotos.dto;import java.math.BigDecimal;import java.time.LocalDateTime;import br.com.saraivamotos.domain.*;
+public record RecebimentoResponse(Long id,BigDecimal valor,FormaPagamento formaPagamento,LocalDateTime dataHora,String operadorEmail,Boolean estornado,LocalDateTime dataEstorno,String motivoEstorno){public static RecebimentoResponse from(Recebimento r){return new RecebimentoResponse(r.getId(),r.getValor(),r.getFormaPagamento(),r.getDataHora(),r.getOperadorEmail(),r.getEstornado(),r.getDataEstorno(),r.getMotivoEstorno());}}

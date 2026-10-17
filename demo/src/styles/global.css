@@ -47,9 +47,37 @@
 .cash-header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
 .cash-header > div { display: grid; gap: 4px; }
 .cash-header strong { font-size: 1.75rem; }
-.cash-totals { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 10px; margin: 16px 0; }
-.cash-totals div { background: var(--surface-soft, #f6f7f9); border-radius: 10px; display: grid; gap: 4px; padding: 12px; }
-.cash-history article { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border, #ddd); }
+.cash-financial-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(155px,1fr)); gap: 10px; margin: 16px 0; }
+.cash-financial-summary > div { background: var(--surface-soft, #f6f7f9); border-radius: 10px; display: grid; gap: 4px; padding: 12px; }
+.cash-financial-summary .cash-summary-highlight { border: 1px solid color-mix(in srgb, var(--color-primary) 60%, var(--color-border)); background: var(--color-primary-soft); }
+.cash-financial-summary.is-compact { grid-template-columns: repeat(auto-fit,minmax(135px,1fr)); }
+.cash-financial-summary.is-compact > div { padding: 9px; }
+.cash-refresh { align-items: flex-end; display: flex; flex-direction: column; gap: 5px; }
+.cash-refresh span { color: var(--muted); font-size: 0.78rem; }
+.cash-history { margin-top: 1rem; }
+.cash-history-list { display: grid; gap: 8px; margin-top: 10px; }
+.cash-history-item { border-bottom: 1px solid var(--border, #ddd); padding: 10px 0; }
+.cash-history-item > summary { align-items: center; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+.cash-history-details { display: grid; gap: 8px; padding: 12px 0; }
+.cash-history-details p { margin: 0; }
+.cash-closing-values { display: flex; flex-wrap: wrap; gap: 20px; }
+.cash-closing-values span { display: grid; gap: 2px; }
+@media (max-width: 600px) { .cash-refresh { align-items: stretch; } .cash-history-item > summary { align-items: flex-start; flex-direction: column; } }
+.quote-form { display: grid; gap: 18px; }
+.quote-adders { display: grid; gap: 10px; }
+.quote-adders > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.quote-adders input, .quote-adders select { flex: 1 1 180px; }
+.quote-items, .quote-history { display: grid; gap: 10px; }
+.quote-items article { align-items: end; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 10px; grid-template-columns: minmax(180px,2fr) 90px 130px auto auto; padding: 12px; }
+.quote-items article > div, .quote-items label { display: grid; gap: 4px; }
+.quote-total { align-items: flex-end; display: flex; flex-wrap: wrap; gap: 20px; justify-content: flex-end; }
+.quote-total strong { font-size: 1.25rem; }
+.quote-history > article { border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 12px; padding: 14px; }
+.quote-history > article > div:first-child { display: grid; }
+.quote-conversion { align-items: center; background: var(--color-primary-soft); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+.credit-sale-fields { background: var(--color-primary-soft); border-radius: 12px; display: grid; gap: 10px; padding: 12px; }
+.receivables-list { display: grid; gap: 12px; }.receivables-list > article { border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 10px; padding: 14px; }.receivables-list > article > div { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }.receivables-list > article > div:first-child { display: grid; justify-content: initial; }.receivable-payment { background: var(--color-primary-soft); border-radius: 10px; padding: 10px; }.receivable-history { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 10px; padding: 8px 0; }
+@media (max-width: 800px) { .quote-items article { grid-template-columns: 1fr 1fr; } .quote-items article > div { grid-column: 1 / -1; } }
 .remote-reader-connect { margin-top: 10px; }
 .remote-reader-card { display: flex; gap: 16px; align-items: center; margin-top: 12px; padding: 12px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
 .remote-reader-card img { width: 150px; height: 150px; }

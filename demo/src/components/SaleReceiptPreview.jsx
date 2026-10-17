@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import SaleReceipt from "./SaleReceipt.jsx";
+import { saveSaleReceiptPdf } from "../services/receiptPdf.js";
 
 export default function SaleReceiptPreview({ sale, customers, onClose }) {
   if (!sale) return null;
@@ -19,7 +20,11 @@ export default function SaleReceiptPreview({ sale, customers, onClose }) {
 
         <div className="receipt-preview-actions no-print">
           <button type="button" className="secondary-button" onClick={onClose}>Voltar</button>
-          <button type="button" className="primary-button" onClick={() => window.print()}>IMPRIMIR</button>
+          <button type="button" className="secondary-button" onClick={() => {
+            try { saveSaleReceiptPdf(sale, customers); }
+            catch (_failure) { window.alert("Não foi possível salvar o PDF. Verifique as permissões de download do navegador."); }
+          }}>Salvar PDF</button>
+          <button type="button" className="primary-button" onClick={() => window.print()}>Imprimir comprovante</button>
         </div>
       </div>
     </div>,

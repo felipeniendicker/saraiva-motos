@@ -14,8 +14,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface VendaRepository extends JpaRepository<Venda, Long> {
-    @Query("SELECT v.formaPagamento, COALESCE(SUM(v.total), 0) FROM Venda v WHERE v.caixaId = :caixaId AND v.status = br.com.saraivamotos.domain.StatusVenda.CONCLUIDA GROUP BY v.formaPagamento")
+    @Query("SELECT v.formaPagamento, COALESCE(SUM(v.total), 0) FROM Venda v WHERE v.caixaId = :caixaId AND v.condicaoPagamento = br.com.saraivamotos.domain.CondicaoPagamento.IMEDIATO GROUP BY v.formaPagamento")
     List<Object[]> totaisPorFormaNoCaixa(@Param("caixaId") Long caixaId);
+    @Query("SELECT v.formaPagamento,COALESCE(SUM(v.total),0) FROM Venda v WHERE v.condicaoPagamento=br.com.saraivamotos.domain.CondicaoPagamento.IMEDIATO AND (:inicio IS NULL OR v.dataHora>=:inicio) AND (:fim IS NULL OR v.dataHora<:fim) GROUP BY v.formaPagamento")
+    List<Object[]> totaisImediatosPorPeriodo(@Param("inicio")LocalDateTime inicio,@Param("fim")LocalDateTime fim);
     @Query("""
             SELECT COUNT(v), COALESCE(SUM(v.total), 0), COALESCE(SUM(v.desconto), 0)
             FROM Venda v WHERE v.status = br.com.saraivamotos.domain.StatusVenda.CONCLUIDA
