@@ -4,10 +4,12 @@ import java.net.URI;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,6 +21,14 @@ import br.com.saraivamotos.service.GtinNormalizer;
 final class TavilyProductEvidenceEvaluator {
 
     enum Confidence { ALTA, MEDIA, BAIXA, REJEITADA }
+    enum RejectionReason {
+        RESULTADO_NULO,
+        SEM_GTIN_NO_TITULO_OU_TRECHO,
+        TITULO_AUSENTE,
+        PAGINA_GENERICA,
+        URL_INVALIDA,
+        IDENTIDADE_CONFLITANTE
+    }
 
     private static final Pattern CODE_CANDIDATE = Pattern.compile("(?<!\\d)\\d(?:[\\s./-]*\\d){7,13}(?!\\d)");
     private static final Pattern GENERIC_PAGE = Pattern.compile(
@@ -34,18 +44,25 @@ final class TavilyProductEvidenceEvaluator {
     }
 
     Evaluation evaluate(List<TavilySearchResult> results, String codigo) {
-        if (results == null || results.isEmpty()) return Evaluation.rejected();
-        List<Candidate> candidates = results.stream()
-                .map(result -> candidate(result, codigo))
+        if (results == null || results.isEmpty()) return Evaluation.rejected(results == null ? 0 : results.size());
+        List<ResultAssessment> assessments = results.stream()
+                .map(result -> assess(result, codigo))
+                .toList();
+        List<Candidate> candidates = assessments.stream()
+                .map(ResultAssessment::candidate)
                 .filter(java.util.Objects::nonNull)
                 .sorted(Comparator.comparingInt(Candidate::quality).reversed())
                 .toList();
-        if (candidates.isEmpty()) return Evaluation.rejected();
+        if (candidates.isEmpty()) {
+            Diagnostics diagnostics = diagnostics(assessments, null);
+            return Evaluation.rejected(results.size(), diagnostics);
+        }
 
         Candidate anchor = candidates.get(0);
         List<Candidate> consistent = candidates.stream()
                 .filter(candidate -> identitiesAgree(anchor, candidate))
                 .toList();
+        Diagnostics diagnostics = diagnostics(assessments, anchor);
         Confidence confidence = classify(anchor, consistent);
         List<ProdutoFonteResponse> sources = consistent.stream()
                 .map(Candidate::source)
@@ -56,21 +73,47 @@ final class TavilyProductEvidenceEvaluator {
         ProdutoSugestaoResponse suggestion = new ProdutoSugestaoResponse(
                 "TAVILY", codigo, anchor.name(), metadata.marca(), metadata.categoria(), metadata.descricao(),
                 metadata.aplicacao(), metadata.codigoReferencia(), confidence.name(), sources);
-        return new Evaluation(confidence, suggestion, candidates.size(), consistent.size());
+        int consistentSources = (int) consistent.stream().map(Candidate::source)
+                .filter(java.util.Objects::nonNull).count();
+        return new Evaluation(confidence, suggestion, diagnostics.accepted(), diagnostics.rejected(),
+                results.size(), diagnostics.validSources(), consistentSources, diagnostics.rejectionCounts());
     }
 
-    private Candidate candidate(TavilySearchResult result, String codigo) {
-        if (result == null || !containsEquivalentGtin(result, codigo)) return null;
+    private ResultAssessment assess(TavilySearchResult result, String codigo) {
+        if (result == null) return ResultAssessment.rejected(RejectionReason.RESULTADO_NULO, false);
+        ProdutoFonteResponse source = source(result);
+        boolean validSource = source != null;
+        if (!containsEquivalentGtin(result, codigo)) {
+            return ResultAssessment.rejected(RejectionReason.SEM_GTIN_NO_TITULO_OU_TRECHO, validSource);
+        }
         String name = metadataExtractor.sanitizeTitle(result.title(), codigo);
-        if (name == null || isGeneric(name, codigo)) return null;
+        if (name == null) return ResultAssessment.rejected(RejectionReason.TITULO_AUSENTE, validSource);
+        if (isGeneric(name, codigo)) return ResultAssessment.rejected(RejectionReason.PAGINA_GENERICA, validSource);
         TavilyProductMetadataExtractor.Metadata metadata = metadataExtractor.extract(result.title(), result.content(), codigo);
         int quality = identityTokens(name).size() * 2;
         if (containsEquivalentGtin(result.title(), codigo)) quality += 4;
         if (metadata.marca() != null) quality += 2;
         if (metadata.codigoReferencia() != null) quality += 3;
         if (metadata.aplicacao() != null) quality += 1;
-        ProdutoFonteResponse source = source(result);
-        return new Candidate(name, metadata, source, host(source), quality);
+        Candidate candidate = new Candidate(name, metadata, source, host(source), quality);
+        return new ResultAssessment(candidate, validSource ? null : RejectionReason.URL_INVALIDA, validSource);
+    }
+
+    private Diagnostics diagnostics(List<ResultAssessment> assessments, Candidate anchor) {
+        EnumMap<RejectionReason, Integer> counts = new EnumMap<>(RejectionReason.class);
+        for (RejectionReason reason : RejectionReason.values()) counts.put(reason, 0);
+        int accepted = 0;
+        int validSources = 0;
+        for (ResultAssessment assessment : assessments) {
+            if (assessment.validSource()) validSources++;
+            RejectionReason reason = assessment.rejectionReason();
+            if (reason == null && anchor != null && !identitiesAgree(anchor, assessment.candidate())) {
+                reason = RejectionReason.IDENTIDADE_CONFLITANTE;
+            }
+            if (reason == null) accepted++;
+            else counts.compute(reason, (ignored, count) -> count + 1);
+        }
+        return new Diagnostics(accepted, assessments.size() - accepted, validSources, Map.copyOf(counts));
     }
 
     private Confidence classify(Candidate anchor, List<Candidate> consistent) {
@@ -155,9 +198,48 @@ final class TavilyProductEvidenceEvaluator {
         }
     }
 
-    record Evaluation(Confidence confidence, ProdutoSugestaoResponse suggestion, int accepted, int consistent) {
-        static Evaluation rejected() {
-            return new Evaluation(Confidence.REJEITADA, null, 0, 0);
+    record Evaluation(
+            Confidence confidence,
+            ProdutoSugestaoResponse suggestion,
+            int accepted,
+            int rejected,
+            int received,
+            int validSources,
+            int consistent,
+            Map<RejectionReason, Integer> rejectionCounts) {
+
+        static Evaluation rejected(int received) {
+            EnumMap<RejectionReason, Integer> counts = new EnumMap<>(RejectionReason.class);
+            for (RejectionReason reason : RejectionReason.values()) counts.put(reason, 0);
+            return new Evaluation(Confidence.REJEITADA, null, 0, received, received, 0, 0, Map.copyOf(counts));
+        }
+
+        static Evaluation rejected(int received, Diagnostics diagnostics) {
+            return new Evaluation(Confidence.REJEITADA, null, diagnostics.accepted(), diagnostics.rejected(),
+                    received, diagnostics.validSources(), 0, diagnostics.rejectionCounts());
+        }
+
+        String rejectionSummary() {
+            return Arrays.stream(RejectionReason.values())
+                    .map(reason -> reason + "=" + rejectionCounts.getOrDefault(reason, 0))
+                    .collect(java.util.stream.Collectors.joining(","));
+        }
+    }
+
+    private record Diagnostics(
+            int accepted,
+            int rejected,
+            int validSources,
+            Map<RejectionReason, Integer> rejectionCounts) {
+    }
+
+    private record ResultAssessment(
+            Candidate candidate,
+            RejectionReason rejectionReason,
+            boolean validSource) {
+
+        static ResultAssessment rejected(RejectionReason reason, boolean validSource) {
+            return new ResultAssessment(null, reason, validSource);
         }
     }
 

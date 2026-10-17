@@ -111,8 +111,9 @@ public class TavilyProductLookupProvider implements ProductLookupProvider, Order
             Optional<ProdutoSugestaoResponse> result = evaluation.confidence()
                     == TavilyProductEvidenceEvaluator.Confidence.REJEITADA
                     ? Optional.empty() : Optional.of(evaluation.suggestion());
-            LOGGER.info("Consulta provider=TAVILY codigo={} httpStatus=200 resultado={} confianca={} evidenciasAceitas={} fontesConsistentes={}",
-                    codigo, resultName(result), evaluation.confidence(), evaluation.accepted(), evaluation.consistent());
+            LOGGER.info("Consulta provider=TAVILY codigo={} httpStatus=200 resultado={} confianca={} evidenciasAceitas={} fontesConsistentes={} resultadosRecebidos={} evidenciasRejeitadas={} fontesUrlValida={} motivosRejeicao={}",
+                    codigo, resultName(result), evaluation.confidence(), evaluation.accepted(), evaluation.consistent(),
+                    evaluation.received(), evaluation.rejected(), evaluation.validSources(), evaluation.rejectionSummary());
             return result;
         } catch (RestClientResponseException exception) {
             LOGGER.warn("Consulta provider=TAVILY codigo={} httpStatus={} resultado=INDISPONIVEL",
