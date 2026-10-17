@@ -46,6 +46,17 @@ class TavilyProductMetadataExtractorTests {
     }
 
     @Test
+    void recognizesMpnCompatibilityAndStarterMotorCategory() {
+        var result = extractor.extract("Motor de partida Starke CG 160",
+                "Marca: Starke Código do fabricante (MPN): MA0007 Compatibilidade: Honda CG 160 2016+",
+                "7908006704133");
+        assertEquals("Starke", result.marca());
+        assertEquals("MA0007", result.codigoReferencia());
+        assertEquals("Honda CG 160 2016+", result.aplicacao());
+        assertEquals("Elétrica", result.categoria());
+    }
+
+    @Test
     void unknownBrandAndCategoryRemainEmpty() {
         var result = extractor.extract("Peça especial 1234567890123", "Descrição sem classificação", "1234567890123");
         assertNull(result.marca());

@@ -4,6 +4,7 @@ import {
   MOCK_PRODUCT_CODES,
   PRODUCT_LOOKUP_STATUS,
   applyLookupToProductForm,
+  createSuggestionSelection,
   hasDuplicateBarcode,
   interpretSalesLookupResponse,
   isValidGtin,
@@ -84,8 +85,15 @@ test("50. produto externo encontrado retorna estrutura normalizada", async () =>
     descricao: "Descrição",
     aplicacao: null,
     imagemUrl: null,
-    source: "TEST"
+    source: "TEST",
+    confidence: "MEDIA",
+    sources: []
   });
+});
+
+test("consulta normaliza GTIN formatado sem aceitar correspondência parcial", () => {
+  assert.equal(normalizeBarcode("7908 0067-0413.3"), "7908006704133");
+  assert.equal(normalizeBarcode("ABC-123"), "ABC-123");
 });
 
 test("51. produto não encontrado mantém cadastro manual disponível", async () => {
@@ -269,4 +277,48 @@ test("PDV mantém fluxo normal para produto local", () => {
   const product = { id: 7, nome: "Peça local" };
   const result = interpretSalesLookupResponse({ encontrado: true, cadastradoLocalmente: true, produto: product }, "00123456");
   assert.deepEqual(result, { ok: true, product });
+});
+
+test("confiança alta sugere campos, mas só aplica após confirmação explícita", async () => {
+  const result = await lookupProductByBarcode("7908006704133", {
+    findLookup: async () => ({
+      encontrado: true,
+      origem: "TAVILY",
+      sugestao: {
+        nome: "Motor de partida Starke",
+        marca: "Starke",
+        confianca: "ALTA",
+        fontes: [{ titulo: "Loja", url: "https://loja.test/item" }]
+      }
+    })
+  });
+  const selection = createSuggestionSelection(result);
+  assert.equal(selection.nome, true);
+  assert.equal(result.sources.length, 1);
+  assert.equal(applyLookupToProductForm(baseForm, result, {}).nome, "");
+  assert.equal(applyLookupToProductForm(baseForm, result, selection).nome, "Motor de partida Starke");
+});
+
+test("confiança média exige seleção individual e baixa não pré-seleciona dados", () => {
+  const medium = { confidence: "MEDIA", nome: "Peça", marca: "Marca" };
+  const low = { confidence: "BAIXA", nome: "Peça" };
+  assert.deepEqual(createSuggestionSelection(medium), {
+    nome: false, marca: false, codigoReferencia: false, categoria: false, aplicacao: false, descricao: false
+  });
+  assert.equal(createSuggestionSelection(low).nome, false);
+});
+
+test("links de fonte inseguros são descartados", async () => {
+  const result = await lookupProductByBarcode("7908006704133", {
+    findLookup: async () => ({
+      encontrado: true,
+      origem: "TAVILY",
+      sugestao: { nome: "Peça", confianca: "MEDIA", fontes: [
+        { titulo: "Insegura", url: "javascript:alert(1)" },
+        { titulo: "Segura", url: "https://loja.test/item" }
+      ] }
+    })
+  });
+  assert.equal(result.sources.length, 1);
+  assert.equal(result.sources[0].titulo, "Segura");
 });

@@ -21,7 +21,9 @@ public class TavilyConfig {
             @Value("${app.tavily.base-url}") String baseUrl,
             @Value("${app.tavily.api-key}") String apiKey,
             @Value("${app.tavily.connect-timeout:2500ms}") Duration connectTimeout,
-            @Value("${app.tavily.read-timeout:4000ms}") Duration readTimeout) {
+            @Value("${app.tavily.read-timeout:4000ms}") Duration readTimeout,
+            @Value("${app.tavily.positive-cache-ttl:6h}") Duration positiveCacheTtl,
+            @Value("${app.tavily.negative-cache-ttl:30m}") Duration negativeCacheTtl) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("TAVILY_API_KEY é obrigatória quando TAVILY_ENABLED=true.");
         }
@@ -34,6 +36,6 @@ public class TavilyConfig {
                 .defaultHeader("User-Agent", "Saraiva-Motos/1.0")
                 .requestFactory(requestFactory)
                 .build();
-        return new TavilyProductLookupProvider(client);
+        return new TavilyProductLookupProvider(client, positiveCacheTtl, negativeCacheTtl);
     }
 }

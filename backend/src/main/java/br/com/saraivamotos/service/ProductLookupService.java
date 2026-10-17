@@ -37,8 +37,20 @@ public class ProductLookupService {
 
     @Transactional(readOnly = true)
     public ProdutoLookupResponse lookup(String codigo) {
+        return lookup(codigo, false);
+    }
+
+    @Transactional(readOnly = true)
+    public ProdutoLookupResponse lookup(String codigo, boolean forceRefresh) {
         String normalized = normalize(codigo);
         Produto local = repository.findByCodigoBarras(normalized).orElse(null);
+        if (local == null) {
+            local = GtinNormalizer.equivalents(normalized).stream()
+                    .filter(candidate -> !candidate.equals(normalized))
+                    .map(repository::findByCodigoBarras)
+                    .flatMap(java.util.Optional::stream)
+                    .findFirst().orElse(null);
+        }
         if (local == null) {
             List<Produto> references = repository.findByCodigoReferenciaOrderByIdAsc(normalized);
             if (references.size() > 1) throw new CodigoProdutoAmbiguoException();
@@ -59,7 +71,9 @@ public class ProductLookupService {
             LOGGER.info("Consulta externa iniciada provider={} codigo={} fallback={}",
                     providerName, normalized, fallback);
             try {
-                var suggestion = provider.lookup(normalized);
+                var suggestion = forceRefresh
+                        ? provider.lookup(normalized, true)
+                        : provider.lookup(normalized);
                 normalResponses++;
                 if (suggestion.isPresent()) {
                     ProdutoSugestaoResponse value = suggestion.get();
@@ -91,6 +105,6 @@ public class ProductLookupService {
         if (codigo == null || codigo.isBlank()) {
             throw new IllegalArgumentException("Informe um código de barras ou referência.");
         }
-        return codigo.trim().replaceAll("\\s+", "");
+        return GtinNormalizer.normalizeInput(codigo);
     }
 }

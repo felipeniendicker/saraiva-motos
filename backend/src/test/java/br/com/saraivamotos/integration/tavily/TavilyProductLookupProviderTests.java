@@ -1,6 +1,10 @@
 package br.com.saraivamotos.integration.tavily;
 
 import java.net.SocketTimeoutException;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
@@ -38,7 +43,10 @@ class TavilyProductLookupProviderTests {
     void extractsConservativeSuggestionFromLiteralGtinEvidence() {
         server.expect(requestTo("https://tavily.test/search"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\\\"7898485619632\\\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_results\":8")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"country\":\"brazil\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"language\":\"pt\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"exact_match\":true")))
                 .andRespond(withSuccess("""
                         {"results":[{"title":"Interruptor Chave de Luz Magnetron Honda Titan Fan - 7898485619632",
                         "url":"https://parts.test/item","content":"GTIN 7898485619632. Interruptor de luz Magnetron para Honda Titan e Fan.","score":0.91}]}
@@ -52,6 +60,8 @@ class TavilyProductLookupProviderTests {
         assertTrue(suggestion.descricao().contains("Magnetron"));
         assertEquals("Magnetron", suggestion.marca());
         assertEquals("Elétrica", suggestion.categoria());
+        assertEquals("MEDIA", suggestion.confianca());
+        assertEquals("https://parts.test/item", suggestion.fontes().get(0).url());
         server.verify();
     }
 
@@ -75,6 +85,14 @@ class TavilyProductLookupProviderTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("000000736473")))
                 .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
         assertTrue(provider.lookup("000000736473").isEmpty());
+    }
+
+    @Test
+    void zeroPaddedGtin14UsesEquivalentGtin13InSingleSearch() {
+        server.expect(requestTo("https://tavily.test/search"))
+                .andExpect(jsonPath("$.query").value("7908006704133"))
+                .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
+        assertTrue(provider.lookup("07908006704133").isEmpty());
     }
 
     @Test
@@ -127,6 +145,46 @@ class TavilyProductLookupProviderTests {
         assertNull(suggestion.marca());
         assertNull(suggestion.categoria());
         assertNull(suggestion.aplicacao());
+        assertNull(suggestion.descricao());
+    }
+
+    @Test
+    void positiveAndNegativeResultsUseCacheButManualRefreshBypassesIt() {
+        respond("""
+                {"results":[{"title":"Motor de partida Starke CG 160 7908006704133","url":"https://parts.test/a",
+                "content":"EAN: 7908006704133 Marca: Starke Código do fabricante (MPN): MA0007","score":0.1}]}
+                """);
+        respond("{\"results\":[]}");
+
+        assertTrue(provider.lookup("7908006704133").isPresent());
+        assertTrue(provider.lookup("7908006704133").isPresent());
+        assertTrue(provider.lookup("7908006704133", true).isEmpty());
+        assertTrue(provider.lookup("7908006704133").isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void simultaneousRequestsForSameGtinShareOneExternalCall() throws Exception {
+        CountDownLatch requestStarted = new CountDownLatch(1);
+        CountDownLatch releaseResponse = new CountDownLatch(1);
+        server.expect(requestTo("https://tavily.test/search")).andRespond(request -> {
+            requestStarted.countDown();
+            try {
+                assertTrue(releaseResponse.await(2, TimeUnit.SECONDS));
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Teste interrompido", exception);
+            }
+            return withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON).createResponse(request);
+        });
+
+        CompletableFuture<?> first = CompletableFuture.supplyAsync(() -> provider.lookup("7908006704133"));
+        assertTrue(requestStarted.await(2, TimeUnit.SECONDS));
+        CompletableFuture<?> second = CompletableFuture.supplyAsync(() -> provider.lookup("7908006704133"));
+        releaseResponse.countDown();
+
+        CompletableFuture.allOf(first, second).get(3, TimeUnit.SECONDS);
+        server.verify();
     }
 
     private void respond(String json) {

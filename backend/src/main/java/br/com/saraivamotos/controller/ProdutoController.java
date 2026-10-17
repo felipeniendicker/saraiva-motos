@@ -57,8 +57,10 @@ public class ProdutoController {
     }
 
     @GetMapping("/lookup/{codigo}")
-    public ProdutoLookupResponse lookup(@PathVariable String codigo) {
-        return lookupService.lookup(codigo);
+    public ProdutoLookupResponse lookup(
+            @PathVariable String codigo,
+            @RequestParam(defaultValue = "false") boolean atualizar) {
+        return atualizar ? lookupService.lookup(codigo, true) : lookupService.lookup(codigo);
     }
 
     @PutMapping("/{id}")

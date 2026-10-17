@@ -1135,6 +1135,50 @@ textarea:disabled {
   overflow-wrap: anywhere;
 }
 
+.external-field-choice {
+  align-items: flex-start;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.external-field-choice input {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.external-field-choice small,
+.external-field-choice span {
+  display: block;
+}
+
+.external-field-choice small,
+.external-sources > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: var(--space-1);
+}
+
+.external-sources {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.external-sources a {
+  color: #20568f;
+  overflow-wrap: anywhere;
+}
+
+.lookup-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
 .product-form {
   display: grid;
   gap: var(--space-4);

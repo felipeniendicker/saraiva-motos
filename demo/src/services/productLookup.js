@@ -12,6 +12,15 @@ export const MOCK_PRODUCT_CODES = {
   ERROR: "0000000000000"
 };
 
+export const EXTERNAL_PRODUCT_FIELDS = [
+  ["nome", "Nome"],
+  ["marca", "Marca / fabricante"],
+  ["codigoReferencia", "Referência / SKU / MPN"],
+  ["categoria", "Categoria"],
+  ["aplicacao", "Aplicações / compatibilidade"],
+  ["descricao", "Observações"]
+];
+
 const mockProducts = {
   [MOCK_PRODUCT_CODES.FOUND]: {
     nome: "Óleo para Motor 10W40 1L",
@@ -30,9 +39,12 @@ const mockProducts = {
 };
 
 export function normalizeBarcode(value) {
-  return String(value ?? "")
-    .trim()
-    .replace(/\s+/g, "");
+  const trimmed = String(value ?? "").trim();
+  if (/^[\d\s./-]+$/.test(trimmed)) {
+    const digits = trimmed.replace(/\D/g, "");
+    if (digits.length >= 8 && digits.length <= 14) return digits;
+  }
+  return trimmed.replace(/\s+/g, "");
 }
 
 export function isValidGtin(value) {
@@ -102,8 +114,25 @@ function normalizeProviderResult(result, barcode) {
     aplicacao: result.aplicacao || null,
     codigoReferencia: result.codigoReferencia || null,
     imagemUrl: result.imagemUrl || null,
-    source: result.source || null
+    source: result.source || null,
+    confidence: result.confianca || result.confidence || "MEDIA",
+    sources: Array.isArray(result.fontes) ? result.fontes.filter(isSafeSource) : []
   };
+}
+
+function isSafeSource(source) {
+  if (!source?.url) return false;
+  try {
+    const url = new URL(source.url);
+    return ["http:", "https:"].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+export function createSuggestionSelection(lookup) {
+  const selectedByDefault = lookup?.confidence === "ALTA";
+  return Object.fromEntries(EXTERNAL_PRODUCT_FIELDS.map(([field]) => [field, selectedByDefault && Boolean(lookup?.[field])]));
 }
 
 export async function lookupProductByBarcode(
@@ -186,16 +215,17 @@ export async function lookupProductByBarcode(
   }
 }
 
-export function applyLookupToProductForm(form, lookup) {
+export function applyLookupToProductForm(form, lookup, selectedFields = null) {
+  const use = (field) => selectedFields == null || selectedFields[field] === true;
   return {
     ...form,
     codigoBarras: normalizeBarcode(lookup.barcode),
-    nome: lookup.nome || form.nome,
-    marca: lookup.marca || form.marca,
-    categoria: lookup.categoria || form.categoria,
-    aplicacao: lookup.aplicacao || form.aplicacao,
-    codigoReferencia: lookup.codigoReferencia || form.codigoReferencia,
-    observacoes: lookup.descricao || form.observacoes
+    nome: use("nome") && lookup.nome ? lookup.nome : form.nome,
+    marca: use("marca") && lookup.marca ? lookup.marca : form.marca,
+    categoria: use("categoria") && lookup.categoria ? lookup.categoria : form.categoria,
+    aplicacao: use("aplicacao") && lookup.aplicacao ? lookup.aplicacao : form.aplicacao,
+    codigoReferencia: use("codigoReferencia") && lookup.codigoReferencia ? lookup.codigoReferencia : form.codigoReferencia,
+    observacoes: use("descricao") && lookup.descricao ? lookup.descricao : form.observacoes
   };
 }
 

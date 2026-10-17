@@ -14,4 +14,8 @@ public interface ProductLookupProvider {
     }
 
     Optional<ProdutoSugestaoResponse> lookup(String codigo);
+
+    default Optional<ProdutoSugestaoResponse> lookup(String codigo, boolean forceRefresh) {
+        return lookup(codigo);
+    }
 }

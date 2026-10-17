@@ -7,5 +7,9 @@ public record TavilySearchRequest(
         @JsonProperty("search_depth") String searchDepth,
         @JsonProperty("max_results") int maxResults,
         @JsonProperty("include_answer") boolean includeAnswer,
-        @JsonProperty("include_raw_content") boolean includeRawContent) {
+        @JsonProperty("include_raw_content") boolean includeRawContent,
+        String country,
+        String language,
+        @JsonProperty("filter_by_language") boolean filterByLanguage,
+        @JsonProperty("exact_match") boolean exactMatch) {
 }

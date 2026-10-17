@@ -6,8 +6,10 @@ import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { formatCurrency, normalizeText } from "../utils/formatters.js";
 import {
+  EXTERNAL_PRODUCT_FIELDS,
   PRODUCT_LOOKUP_STATUS,
   applyLookupToProductForm,
+  createSuggestionSelection,
   isValidGtin,
   lookupProductByBarcode,
   normalizeBarcode
@@ -20,6 +22,12 @@ import {
   searchProducts,
   updateProduct
 } from "../services/productsApi.js";
+
+const CONFIDENCE_LABELS = {
+  ALTA: "Confiança alta",
+  MEDIA: "Confiança média",
+  BAIXA: "Confiança baixa"
+};
 
 const initialForm = {
   id: "",
@@ -42,6 +50,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [barcodeQuery, setBarcodeQuery] = useState("");
   const [lookupResult, setLookupResult] = useState({ status: PRODUCT_LOOKUP_STATUS.IDLE });
+  const [suggestionSelection, setSuggestionSelection] = useState({});
   const [apiProducts, setApiProducts] = useState([]);
   const [apiLoading, setApiLoading] = useState(true);
   const [apiSaving, setApiSaving] = useState(false);
@@ -127,7 +136,7 @@ export default function ProductsPage() {
     scrollToForm();
   }
 
-  async function performBarcodeLookup(value) {
+  async function performBarcodeLookup(value, refresh = false) {
     const barcode = normalizeBarcode(value);
     if (!barcode || lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING) return;
 
@@ -135,9 +144,10 @@ export default function ProductsPage() {
     setLookupResult({ status: PRODUCT_LOOKUP_STATUS.LOADING, barcode });
     const result = await lookupProductByBarcode(barcode, {
       products: sourceProducts,
-      findLookup: lookupProductByCode
+      findLookup: (code) => lookupProductByCode(code, { refresh })
     });
     setLookupResult(result);
+    setSuggestionSelection(createSuggestionSelection(result));
 
     if ([PRODUCT_LOOKUP_STATUS.NOT_FOUND, PRODUCT_LOOKUP_STATUS.ERROR].includes(result.status)) {
       setForm({ ...initialForm, codigoBarras: result.barcode });
@@ -151,7 +161,7 @@ export default function ProductsPage() {
   }
 
   function useExternalData() {
-    setForm(applyLookupToProductForm(initialForm, lookupResult));
+    setForm(applyLookupToProductForm(initialForm, lookupResult, suggestionSelection));
     setFormContext("external");
     setFormExpanded(true);
     scrollToForm();
@@ -288,26 +298,49 @@ export default function ProductsPage() {
               <span className="status-pill status-aguardando">Produto encontrado na web</span>
               <div className="external-result-heading">
                 <div><span>Origem da sugestão</span><strong>{lookupResult.source === "TAVILY" ? "Tavily" : lookupResult.source === "UPCITEMDB" ? "UPCitemdb" : lookupResult.source || "Fonte externa"}</strong></div>
-                <p>Confira os dados antes de cadastrar.</p>
+                <div><span>Nível de confiança</span><strong>{CONFIDENCE_LABELS[lookupResult.confidence] || "Confiança média"}</strong></div>
+                <p>{lookupResult.confidence === "BAIXA" ? "Evidência insuficiente para preencher o cadastro. Confira as fontes ou cadastre manualmente." : "Selecione e confira os dados antes de cadastrar."}</p>
               </div>
               <div className="external-product-data">
-                {lookupResult.nome && <div className="field-wide"><span>Nome</span><strong>{lookupResult.nome}</strong></div>}
-                {lookupResult.marca && <div><span>Marca</span><strong>{lookupResult.marca}</strong></div>}
-                {lookupResult.codigoReferencia && <div><span>Referência</span><strong>{lookupResult.codigoReferencia}</strong></div>}
-                {lookupResult.categoria && <div><span>Categoria</span><strong>{lookupResult.categoria}</strong></div>}
-                {lookupResult.aplicacao && <div><span>Aplicação</span><strong>{lookupResult.aplicacao}</strong></div>}
+                {EXTERNAL_PRODUCT_FIELDS.map(([field, label]) => lookupResult[field] && (
+                  <label key={field} className={field === "nome" || field === "descricao" ? "field-wide external-field-choice" : "external-field-choice"}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(suggestionSelection[field])}
+                      disabled={lookupResult.confidence === "BAIXA"}
+                      onChange={(event) => setSuggestionSelection((current) => ({ ...current, [field]: event.target.checked }))}
+                    />
+                    <span><small>{label}</small><strong>{lookupResult[field]}</strong></span>
+                  </label>
+                ))}
                 {lookupResult.barcode && <div><span>Código de barras</span><strong>{lookupResult.barcode}</strong></div>}
-                {lookupResult.descricao && <div className="field-wide"><span>Observações</span><strong>{lookupResult.descricao}</strong></div>}
               </div>
+              {lookupResult.sources.length > 0 && (
+                <div className="external-sources"><span>Fontes para conferência</span>{lookupResult.sources.map((source) => (
+                  <a key={source.url} href={source.url} target="_blank" rel="noreferrer noopener">{source.titulo || source.url}</a>
+                ))}</div>
+              )}
             </div>
-            <button type="button" className="primary-button" onClick={useExternalData}>Usar dados no cadastro</button>
+            <div className="lookup-actions">
+              <button type="button" className="secondary-button" onClick={() => performBarcodeLookup(lookupResult.barcode, true)}>Atualizar consulta</button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={lookupResult.confidence === "BAIXA" || !Object.values(suggestionSelection).some(Boolean)}
+                onClick={useExternalData}
+              >Usar dados selecionados</button>
+              <button type="button" className="ghost-button" onClick={() => prepareManualForm(lookupResult.barcode)}>Cadastrar manualmente</button>
+            </div>
           </div>
         )}
 
         {lookupResult.status === PRODUCT_LOOKUP_STATUS.NOT_FOUND && (
           <div className="lookup-result lookup-warning">
             <div><strong>Produto não encontrado no cadastro.</strong><p>Nenhuma fonte configurada retornou informações para este código.</p></div>
-            <button type="button" className="secondary-button" onClick={() => prepareManualForm(lookupResult.barcode)}>Cadastrar com este código</button>
+            <div className="lookup-actions">
+              <button type="button" className="secondary-button" onClick={() => performBarcodeLookup(lookupResult.barcode, true)}>Atualizar consulta</button>
+              <button type="button" className="secondary-button" onClick={() => prepareManualForm(lookupResult.barcode)}>Cadastrar com este código</button>
+            </div>
           </div>
         )}
 

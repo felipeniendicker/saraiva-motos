@@ -50,6 +50,18 @@ class ProductLookupServiceTests {
     }
 
     @Test
+    void findsExistingGtin13WhenScannerSendsEquivalentGtin14() {
+        Produto product = product(true);
+        when(repository.findByCodigoBarras("07908006704133")).thenReturn(Optional.empty());
+        when(repository.findByCodigoBarras("7908006704133")).thenReturn(Optional.of(product));
+
+        var result = service.lookup("0 7908006704133");
+
+        assertTrue(result.cadastradoLocalmente());
+        assertEquals("LOCAL", result.origem());
+    }
+
+    @Test
     void findsInactiveLocalProductSoPdvCanExplainState() {
         Produto product = product(false);
         when(repository.findByCodigoBarras("INATIVO-1")).thenReturn(Optional.of(product));

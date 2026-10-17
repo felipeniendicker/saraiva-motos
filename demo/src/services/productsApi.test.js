@@ -18,3 +18,16 @@ test("lookup preserva zeros e usa endpoint estruturado com Bearer", async () => 
   assert.equal(result.codigoConsultado, "000123");
   delete global.localStorage;
 });
+
+test("atualização manual ignora cache pelo parâmetro explícito", async () => {
+  global.localStorage = { getItem: () => null };
+  let url;
+  global.fetch = async (requestedUrl) => {
+    url = requestedUrl;
+    return { ok: true, status: 200, json: async () => ({ encontrado: false }) };
+  };
+
+  await lookupProductByCode("7908006704133", { refresh: true });
+  assert.match(url, /api\/produtos\/lookup\/7908006704133\?atualizar=true$/);
+  delete global.localStorage;
+});

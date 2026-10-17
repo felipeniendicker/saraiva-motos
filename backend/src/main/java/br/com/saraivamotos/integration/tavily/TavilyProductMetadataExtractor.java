@@ -8,6 +8,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import br.com.saraivamotos.service.GtinNormalizer;
+
 final class TavilyProductMetadataExtractor {
 
     private static final int DESCRIPTION_LIMIT = 500;
@@ -19,11 +21,13 @@ final class TavilyProductMetadataExtractor {
     private static final Pattern COMMERCIAL_SUFFIX = Pattern.compile(
             "(?iu)(?:\\b(?:loja|moto pe[cç]as|capacete|vestu[aá]rio|acess[oó]rios|compre|online)\\b|www\\.|\\.(?:com|com\\.br)\\b)");
     private static final Pattern EXPLICIT_BRAND = Pattern.compile(
-            "(?iu)(?:fabricante|marca)\\s*:\\s*([\\p{L}0-9][\\p{L}0-9 .&-]{1,39}?)(?=\\s+(?:c[oó]digo(?:\\s+do\\s+(?:fabricante|produto))?|ncm|ean|gtin|marca|fabricante)\\s*:|[;|\\n]|$)");
+            "(?iu)(?:fabricante|marca)\\s*:\\s*([\\p{L}0-9][\\p{L}0-9 .&-]{1,39}?)(?=\\s+(?:c[oó]digo(?:\\s+do\\s+(?:fabricante|produto))?|refer[eê]ncia|sku|mpn|ncm|ean|gtin|marca|fabricante)(?:\\s*\\([^)]*\\))?\\s*:|[;|\\n]|$)");
     private static final Pattern REFERENCE = Pattern.compile(
-            "(?iu)c[oó]digo\\s+do\\s+(?:fabricante|produto)\\s*:\\s*([A-Z0-9][A-Z0-9./_-]{1,39})");
+            "(?iu)(?:c[oó]digo\\s+do\\s+(?:fabricante|produto)(?:\\s*\\((?:mpn|sku)\\))?|refer[eê]ncia(?:\\s+do\\s+fornecedor)?|sku|mpn)\\s*:\\s*([A-Z0-9][A-Z0-9./_-]{1,39})");
     private static final Pattern APPLICATION = Pattern.compile(
-            "(?iu)aplica(?:c|ç)[aã]o\\s*:\\s*([^;|\\n]{3,100})");
+            "(?iu)(?:aplica(?:c|ç)(?:[aã]o|ões)|compatibilidade)\\s*:\\s*([^;|\\n]{3,100})");
+    private static final Pattern COMMERCIAL_DATA = Pattern.compile(
+            "(?iu)(?:R\\$|pre[cç]o|valor\\s+(?:de\\s+)?venda|estoque|disponibilidade|\\bPIX\\b|boleto|parcel(?:a|as|ado))");
     private static final Map<String, String> KNOWN_BRANDS = Map.of(
             "magnetron", "Magnetron",
             "diafrag", "Diafrag",
@@ -50,7 +54,7 @@ final class TavilyProductMetadataExtractor {
 
     String sanitizeTitle(String title, String barcode) {
         try {
-            String cleaned = cleanWebText(safe(title).replace(safe(barcode), " "))
+            String cleaned = cleanWebText(removeEquivalentGtins(safe(title), barcode))
                     .replaceAll("#{1,6}", " ")
                     .replaceAll("(?:\\s*\\|\\s*)+", " ")
                     .replaceAll("\\s+", " ")
@@ -66,6 +70,14 @@ final class TavilyProductMetadataExtractor {
             String fallback = safe(title).replace(safe(barcode), "").trim();
             return fallback.isBlank() ? null : fallback;
         }
+    }
+
+    private String removeEquivalentGtins(String value, String barcode) {
+        String cleaned = value;
+        for (String equivalent : GtinNormalizer.equivalents(barcode)) {
+            cleaned = cleaned.replace(equivalent, " ");
+        }
+        return cleaned;
     }
 
     private String extractBrand(String evidence) {
@@ -116,7 +128,18 @@ final class TavilyProductMetadataExtractor {
                 .trim();
         if (cleaned.isBlank()) return null;
         String structured = extractStructuredFields(cleaned);
-        return truncateAtWord(structured == null ? cleaned : structured);
+        String safeDescription = structured == null ? removeCommercialSegments(cleaned) : structured;
+        return safeDescription == null ? null : truncateAtWord(safeDescription);
+    }
+
+    private String removeCommercialSegments(String value) {
+        StringBuilder result = new StringBuilder();
+        for (String segment : value.split("(?<=[.!?])\\s+|\\s*[;|]\\s*")) {
+            if (segment.isBlank() || COMMERCIAL_DATA.matcher(segment).find()) continue;
+            if (!result.isEmpty()) result.append(" | ");
+            result.append(segment.trim());
+        }
+        return result.isEmpty() ? null : result.toString();
     }
 
     private String extractStructuredFields(String value) {
@@ -170,7 +193,7 @@ final class TavilyProductMetadataExtractor {
         rules.put("Freios", new String[]{"sapata de freio", "sapata freio", "pastilha de freio", "pastilha freio", "disco de freio", "disco freio"});
         rules.put("Lubrificantes", new String[]{"oleo", "lubrificante"});
         rules.put("Transmissão", new String[]{"kit relacao", "corrente", "coroa", "pinhao"});
-        rules.put("Elétrica", new String[]{"interruptor", "chave de luz", "lampada", "rele"});
+        rules.put("Elétrica", new String[]{"motor de partida", "motor de arranque", "interruptor", "chave de luz", "lampada", "rele"});
         rules.put("Pneus", new String[]{"pneu", "camara de ar"});
         return rules;
     }

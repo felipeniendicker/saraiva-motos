@@ -57,8 +57,9 @@ export async function findProductByCode(code) {
   }
 }
 
-export function lookupProductByCode(code) {
-  return request(`/api/produtos/lookup/${encodeURIComponent(String(code).trim())}`);
+export function lookupProductByCode(code, { refresh = false } = {}) {
+  const query = refresh ? "?atualizar=true" : "";
+  return request(`/api/produtos/lookup/${encodeURIComponent(String(code).trim())}${query}`);
 }
 
 export function searchProducts(term, options = {}) {
