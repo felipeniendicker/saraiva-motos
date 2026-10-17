@@ -176,23 +176,23 @@ class ProductLookupServiceTests {
     }
 
     @Test
-    void unavailableUpcItemDbStillAllowsTavilyFallback() {
+    void unavailableUpcItemDbAndNormalEmptyTavilyMeanNotFound() {
         ProductLookupProvider upc = mock(ProductLookupProvider.class);
         ProductLookupProvider tavily = mock(ProductLookupProvider.class);
         service = new ProductLookupService(repository, List.of(upc, tavily));
         prepareExternalLookup("7898485619632");
         when(upc.supports("7898485619632")).thenReturn(true);
-        when(upc.lookup("7898485619632")).thenThrow(new ProductLookupProviderUnavailableException("timeout"));
+        when(upc.lookup("7898485619632")).thenThrow(new ProductLookupProviderUnavailableException("HTTP 429"));
         when(tavily.supports("7898485619632")).thenReturn(true);
         when(tavily.lookup("7898485619632")).thenReturn(Optional.empty());
 
-        assertEquals("EXTERNO_INDISPONIVEL", service.lookup("7898485619632").origem());
+        assertEquals("NAO_ENCONTRADO", service.lookup("7898485619632").origem());
         verify(tavily).lookup("7898485619632");
     }
 
     @Test
     void reportedStoreGtinFallsBackFromUnavailableUpcItemDbToTavily() {
-        String code = "7898635121541";
+        String code = "7908006704133";
         ProductLookupProvider upc = mock(ProductLookupProvider.class);
         ProductLookupProvider tavily = mock(ProductLookupProvider.class);
         service = new ProductLookupService(repository, List.of(upc, tavily));
@@ -227,18 +227,30 @@ class ProductLookupServiceTests {
     }
 
     @Test
-    void tavilyFailureAfterUpcItemDbMissMeansExternalUnavailable() {
-        String code = "7898635121541";
+    void allUnavailableProvidersMeanExternalUnavailable() {
+        String code = "7908006704133";
         ProductLookupProvider upc = mock(ProductLookupProvider.class);
         ProductLookupProvider tavily = mock(ProductLookupProvider.class);
         service = new ProductLookupService(repository, List.of(upc, tavily));
         prepareExternalLookup(code);
         when(upc.supports(code)).thenReturn(true);
-        when(upc.lookup(code)).thenReturn(Optional.empty());
+        when(upc.lookup(code)).thenThrow(new ProductLookupProviderUnavailableException("HTTP 429"));
         when(tavily.supports(code)).thenReturn(true);
         when(tavily.lookup(code)).thenThrow(new ProductLookupProviderUnavailableException("HTTP 401"));
 
         assertEquals("EXTERNO_INDISPONIVEL", service.lookup(code).origem());
+    }
+
+    @Test
+    void disabledTavilyKeepsAvailableUpcItemDbNotFoundResult() {
+        String code = "7908006704133";
+        ProductLookupProvider upc = mock(ProductLookupProvider.class);
+        service = new ProductLookupService(repository, List.of(upc));
+        prepareExternalLookup(code);
+        when(upc.supports(code)).thenReturn(true);
+        when(upc.lookup(code)).thenReturn(Optional.empty());
+
+        assertEquals("NAO_ENCONTRADO", service.lookup(code).origem());
     }
 
     private void prepareExternalLookup(String code) {

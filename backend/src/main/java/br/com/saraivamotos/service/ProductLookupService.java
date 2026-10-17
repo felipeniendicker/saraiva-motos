@@ -2,7 +2,10 @@ package br.com.saraivamotos.service;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.OrderComparator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +20,7 @@ import br.com.saraivamotos.repository.ProdutoRepository;
 @Service
 public class ProductLookupService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProductLookupService.class);
     private final ProdutoRepository repository;
     private final List<ProductLookupProvider> providers;
 
@@ -25,6 +29,10 @@ public class ProductLookupService {
         List<ProductLookupProvider> orderedProviders = new ArrayList<>(providers);
         OrderComparator.sort(orderedProviders);
         this.providers = List.copyOf(orderedProviders);
+        String activeProviders = this.providers.isEmpty()
+                ? "NENHUM"
+                : this.providers.stream().map(this::providerName).collect(Collectors.joining(","));
+        LOGGER.info("Providers de consulta de produtos ativos: {}", activeProviders);
     }
 
     @Transactional(readOnly = true)
@@ -40,22 +48,43 @@ public class ProductLookupService {
             return ProdutoLookupResponse.local(normalized, ProdutoResponse.from(local));
         }
 
-        boolean externalUnavailable = false;
+        int attemptedProviders = 0;
+        int normalResponses = 0;
+        int unavailableResponses = 0;
         for (ProductLookupProvider provider : providers) {
             if (!provider.supports(normalized)) continue;
+            String providerName = providerName(provider);
+            boolean fallback = attemptedProviders > 0;
+            attemptedProviders++;
+            LOGGER.info("Consulta externa iniciada provider={} codigo={} fallback={}",
+                    providerName, normalized, fallback);
             try {
                 var suggestion = provider.lookup(normalized);
+                normalResponses++;
                 if (suggestion.isPresent()) {
                     ProdutoSugestaoResponse value = suggestion.get();
                     return ProdutoLookupResponse.externa(normalized, value);
                 }
             } catch (ProductLookupProviderUnavailableException exception) {
-                externalUnavailable = true;
+                unavailableResponses++;
             }
         }
-        return externalUnavailable
-                ? ProdutoLookupResponse.indisponivel(normalized)
-                : ProdutoLookupResponse.naoEncontrado(normalized);
+        if (normalResponses > 0) {
+            LOGGER.info("Consulta externa finalizada codigo={} resultado=NAO_ENCONTRADO providersNormais={} providersIndisponiveis={}",
+                    normalized, normalResponses, unavailableResponses);
+            return ProdutoLookupResponse.naoEncontrado(normalized);
+        }
+        if (unavailableResponses > 0) {
+            LOGGER.warn("Consulta externa finalizada codigo={} resultado=EXTERNO_INDISPONIVEL providersIndisponiveis={}",
+                    normalized, unavailableResponses);
+            return ProdutoLookupResponse.indisponivel(normalized);
+        }
+        return ProdutoLookupResponse.naoEncontrado(normalized);
+    }
+
+    private String providerName(ProductLookupProvider provider) {
+        String name = provider.providerName();
+        return name == null || name.isBlank() ? provider.getClass().getSimpleName() : name;
     }
 
     private String normalize(String codigo) {

@@ -35,6 +35,11 @@ public class TavilyProductLookupProvider implements ProductLookupProvider, Order
     }
 
     @Override
+    public String providerName() {
+        return "TAVILY";
+    }
+
+    @Override
     public boolean supports(String codigo) {
         return codigo != null && BARCODE.matcher(codigo).matches();
     }
@@ -48,12 +53,17 @@ public class TavilyProductLookupProvider implements ProductLookupProvider, Order
                     .body(new TavilySearchRequest('"' + codigo + '"', "basic", 3, false, false))
                     .retrieve()
                     .body(TavilySearchResponse.class);
-            return extractSuggestion(response, codigo);
+            Optional<ProdutoSugestaoResponse> result = extractSuggestion(response, codigo);
+            LOGGER.info("Consulta provider=TAVILY codigo={} httpStatus=200 resultado={}",
+                    codigo, result.isPresent() ? "ENCONTRADO" : "NAO_ENCONTRADO");
+            return result;
         } catch (RestClientResponseException exception) {
-            LOGGER.warn("Tavily indisponível para consulta do código {} (HTTP {})", codigo, exception.getStatusCode().value());
+            LOGGER.warn("Consulta provider=TAVILY codigo={} httpStatus={} resultado=INDISPONIVEL",
+                    codigo, exception.getStatusCode().value());
             throw new ProductLookupProviderUnavailableException("Tavily temporariamente indisponível.", exception);
         } catch (RestClientException | IllegalStateException exception) {
-            LOGGER.warn("Falha de comunicação ou resposta inválida da Tavily para o código {}: {}", codigo, exception.getClass().getSimpleName());
+            LOGGER.warn("Consulta provider=TAVILY codigo={} httpStatus=SEM_RESPOSTA resultado=INDISPONIVEL falha={}",
+                    codigo, exception.getClass().getSimpleName());
             throw new ProductLookupProviderUnavailableException("Tavily temporariamente indisponível.", exception);
         }
     }

@@ -105,10 +105,10 @@ class UpcItemDbProductLookupProviderTests {
     void notFoundAndBadRequestMeanNoSuggestion() {
         server.expect(requestTo("https://provider.test/lookup?upc=7891234567895"))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.NOT_FOUND));
-        server.expect(requestTo("https://provider.test/lookup?upc=7891234567895")).andRespond(withBadRequest());
+        server.expect(requestTo("https://provider.test/lookup?upc=7891234567896")).andRespond(withBadRequest());
 
         assertTrue(provider.lookup("7891234567895").isEmpty());
-        assertTrue(provider.lookup("7891234567895").isEmpty());
+        assertTrue(provider.lookup("7891234567896").isEmpty());
     }
 
     @Test
@@ -116,6 +116,26 @@ class UpcItemDbProductLookupProviderTests {
         server.expect(once(), requestTo("https://provider.test/lookup?upc=7891234567895"))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS));
         assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7891234567895"));
+        server.verify();
+    }
+
+    @Test
+    void repeatedLookupUsesTemporaryCache() {
+        server.expect(once(), requestTo("https://provider.test/lookup?upc=7908006704133"))
+                .andRespond(withSuccess("{\"code\":\"OK\",\"total\":0,\"items\":[]}", MediaType.APPLICATION_JSON));
+
+        assertTrue(provider.lookup("7908006704133").isEmpty());
+        assertTrue(provider.lookup("7908006704133").isEmpty());
+        server.verify();
+    }
+
+    @Test
+    void repeatedLookupDuringRateLimitCooldownDoesNotCallProviderAgain() {
+        server.expect(once(), requestTo("https://provider.test/lookup?upc=7908006704133"))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS));
+
+        assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7908006704133"));
+        assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7908006704133"));
         server.verify();
     }
 

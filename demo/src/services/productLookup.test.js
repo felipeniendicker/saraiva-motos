@@ -35,6 +35,7 @@ test("47. normalização preserva zeros à esquerda", () => {
 
 test("GTIN informado na loja possui dígito verificador válido", () => {
   assert.equal(isValidGtin("7898635121541"), true);
+  assert.equal(isValidGtin("7908006704133"), true);
 });
 
 test("48. produto local é encontrado antes do provider", async () => {
@@ -234,11 +235,11 @@ test("indisponibilidade externa mantém cadastro manual disponível", async () =
 });
 
 test("resposta não encontrada permanece diferente de indisponibilidade", async () => {
-  const result = await lookupProductByBarcode("7898635121541", {
+  const result = await lookupProductByBarcode("7908006704133", {
     findLookup: async () => ({ encontrado: false, origem: "NAO_ENCONTRADO", mensagem: null })
   });
   assert.equal(result.status, PRODUCT_LOOKUP_STATUS.NOT_FOUND);
-  assert.equal(result.barcode, "7898635121541");
+  assert.equal(result.barcode, "7908006704133");
 });
 
 test("erros HTTP do backend exibem indisponibilidade sem perder o código", async () => {

@@ -20,7 +20,9 @@ public class UpcItemDbConfig {
             RestClient.Builder builder,
             @Value("${app.upcitemdb.base-url}") String baseUrl,
             @Value("${app.upcitemdb.connect-timeout:2500ms}") Duration connectTimeout,
-            @Value("${app.upcitemdb.read-timeout:4000ms}") Duration readTimeout) {
+            @Value("${app.upcitemdb.read-timeout:4000ms}") Duration readTimeout,
+            @Value("${app.upcitemdb.cache-ttl:5m}") Duration cacheTtl,
+            @Value("${app.upcitemdb.rate-limit-cooldown:1m}") Duration rateLimitCooldown) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
@@ -30,6 +32,6 @@ public class UpcItemDbConfig {
                 .defaultHeader("User-Agent", "Saraiva-Motos/1.0")
                 .requestFactory(requestFactory)
                 .build();
-        return new UpcItemDbProductLookupProvider(client);
+        return new UpcItemDbProductLookupProvider(client, cacheTtl, rateLimitCooldown);
     }
 }
