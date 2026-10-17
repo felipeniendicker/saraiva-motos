@@ -104,8 +104,7 @@ public class TavilyProductLookupProvider implements ProductLookupProvider, Order
                     .filter(value -> value.length() == 13)
                     .findFirst().orElse(codigo);
             TavilySearchResponse response = client.post().uri("/search")
-                    .body(new TavilySearchRequest(searchCode, "basic", 8, false, false,
-                            "brazil", "pt", false, true))
+                    .body(new TavilySearchRequest('"' + searchCode + '"', "basic", 8, false, false))
                     .retrieve().body(TavilySearchResponse.class);
             TavilyProductEvidenceEvaluator.Evaluation evaluation = evidenceEvaluator.evaluate(
                     response == null ? null : response.results(), codigo);

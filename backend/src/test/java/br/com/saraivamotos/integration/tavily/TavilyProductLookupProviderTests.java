@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 
 import br.com.saraivamotos.service.ProductLookupProviderUnavailableException;
 
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,10 +44,9 @@ class TavilyProductLookupProviderTests {
     void extractsConservativeSuggestionFromLiteralGtinEvidence() {
         server.expect(requestTo("https://tavily.test/search"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"max_results\":8")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"country\":\"brazil\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"language\":\"pt\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"exact_match\":true")))
+                .andExpect(content().string(equalTo(
+                        "{\"query\":\"\\\"7898485619632\\\"\",\"search_depth\":\"basic\",\"max_results\":8,"
+                                + "\"include_answer\":false,\"include_raw_content\":false}")))
                 .andRespond(withSuccess("""
                         {"results":[{"title":"Interruptor Chave de Luz Magnetron Honda Titan Fan - 7898485619632",
                         "url":"https://parts.test/item","content":"GTIN 7898485619632. Interruptor de luz Magnetron para Honda Titan e Fan.","score":0.91}]}
@@ -90,7 +90,7 @@ class TavilyProductLookupProviderTests {
     @Test
     void zeroPaddedGtin14UsesEquivalentGtin13InSingleSearch() {
         server.expect(requestTo("https://tavily.test/search"))
-                .andExpect(jsonPath("$.query").value("7908006704133"))
+                .andExpect(jsonPath("$.query").value("\"7908006704133\""))
                 .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
         assertTrue(provider.lookup("07908006704133").isEmpty());
     }
@@ -103,6 +103,18 @@ class TavilyProductLookupProviderTests {
 
         assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7898485619632"));
         assertThrows(ProductLookupProviderUnavailableException.class, () -> provider.lookup("7898485619632"));
+    }
+
+    @Test
+    void badRequestIsReportedAsUnavailableWithoutChangingTheRequest() {
+        server.expect(requestTo("https://tavily.test/search"))
+                .andExpect(jsonPath("$.query").value("\"7908006704133\""))
+                .andExpect(jsonPath("$.max_results").value(8))
+                .andRespond(withStatus(org.springframework.http.HttpStatus.BAD_REQUEST));
+
+        assertThrows(ProductLookupProviderUnavailableException.class,
+                () -> provider.lookup("7908006704133"));
+        server.verify();
     }
 
     @Test
