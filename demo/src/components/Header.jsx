@@ -1,10 +1,11 @@
-import { formatMonthLabel, getCurrentMonthValue } from "../utils/formatters.js";
+import { BUSINESS_TIME_ZONE, formatMonthLabel, getCurrentMonthValue } from "../utils/formatters.js";
 
 export default function Header({ title, subtitle, actions, menuOpen, menuButtonRef, onMenuToggle }) {
   const today = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "long",
-    year: "numeric"
+    year: "numeric",
+    timeZone: BUSINESS_TIME_ZONE
   }).format(new Date());
 
   return (

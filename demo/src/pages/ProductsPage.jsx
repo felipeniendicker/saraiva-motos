@@ -4,7 +4,7 @@ import BarcodeInput from "../components/BarcodeInput.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
-import { formatCurrency, normalizeText } from "../utils/formatters.js";
+import { formatCurrency, formatDate, normalizeText } from "../utils/formatters.js";
 import {
   EXTERNAL_PRODUCT_FIELDS,
   PRODUCT_LOOKUP_STATUS,
@@ -468,7 +468,7 @@ export default function ProductsPage() {
                       <div><span>Aplicação</span><strong>{product.aplicacao || "Não informada"}</strong></div>
                       <div><span>Custo</span><strong>{formatCurrency(product.valorCusto)}</strong></div>
                       <div className="mobile-only-detail"><span>Revenda</span><strong>{formatCurrency(product.precoRevenda)}</strong></div>
-                      <div><span>Cadastro</span><strong>{product.dataCadastro ? new Date(product.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
+                      <div><span>Cadastro</span><strong>{formatDate(product.dataCadastro)}</strong></div>
                     </div>
                   </details>
                   <div className="card-actions">

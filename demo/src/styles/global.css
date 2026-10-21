@@ -76,8 +76,58 @@
 .quote-history > article > div:first-child { display: grid; }
 .quote-conversion { align-items: center; background: var(--color-primary-soft); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
 .credit-sale-fields { background: var(--color-primary-soft); border-radius: 12px; display: grid; gap: 10px; padding: 12px; }
-.receivables-list { display: grid; gap: 12px; }.receivables-list > article { border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 10px; padding: 14px; }.receivables-list > article > div { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }.receivables-list > article > div:first-child { display: grid; justify-content: initial; }.receivable-payment { background: var(--color-primary-soft); border-radius: 10px; padding: 10px; }.receivable-history { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 10px; padding: 8px 0; }
+.receivables-search {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.88rem;
+  font-weight: 700;
+  gap: 6px;
+  margin-bottom: 16px;
+  max-width: 420px;
+}
+.receivables-list { display: grid; gap: 12px; }
+.receivable-customer-group { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.receivable-customer-group > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  list-style-position: inside;
+  padding: 16px;
+}
+.receivable-customer-group > summary:hover { background: var(--color-surface-soft); }
+.receivable-customer-group > summary > div { display: grid; gap: 2px; }
+.receivable-customer-group > summary > div:last-child { margin-left: auto; text-align: right; }
+.receivable-customer-group > summary > div:last-child strong { font-size: 1.15rem; }
+.receivable-customer-group > summary span { color: var(--muted); font-size: 0.84rem; }
+.receivable-customer-accounts { background: var(--color-surface-soft); display: grid; gap: 10px; padding: 12px; }
+.receivable-account { background: var(--color-surface); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 12px; padding: 14px; }
+.receivable-account-heading { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+.receivable-account-heading > div { display: grid; gap: 2px; }
+.receivable-account-heading span,
+.receivable-account-heading small,
+.receivable-account-values span { color: var(--muted); }
+.receivable-account-heading strong { font-size: 1.05rem; }
+.receivable-account-values { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.receivable-account-values span { display: grid; font-size: 0.82rem; gap: 2px; }
+.receivable-account-values strong { color: var(--text); font-size: 0.96rem; }
+.receivable-account-values span:last-child strong { font-size: 1.08rem; }
+.receivable-payment { align-items: end; background: var(--color-primary-soft); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; }
+.receivable-payment input,
+.receivable-payment select { flex: 1 1 180px; }
+.receivable-payment-history > summary { color: var(--muted); cursor: pointer; font-size: 0.88rem; font-weight: 700; }
+.receivable-empty-history { color: var(--muted); font-size: 0.86rem; margin: 8px 0 0; }
+.receivable-history { align-items: center; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; padding: 8px 0; }
 @media (max-width: 800px) { .quote-items article { grid-template-columns: 1fr 1fr; } .quote-items article > div { grid-column: 1 / -1; } }
+@media (max-width: 600px) {
+  .receivables-search { max-width: none; }
+  .receivable-customer-group > summary { align-items: flex-start; }
+  .receivable-account-values { grid-template-columns: minmax(0, 1fr); }
+  .receivable-account-heading { align-items: stretch; flex-direction: column; }
+  .receivable-account-heading .status-pill { align-self: flex-start; }
+  .receivable-payment { align-items: stretch; flex-direction: column; }
+}
 .remote-reader-connect { margin-top: 10px; }
 .remote-reader-card { display: flex; gap: 16px; align-items: center; margin-top: 12px; padding: 12px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
 .remote-reader-card img { width: 150px; height: 150px; }

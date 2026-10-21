@@ -1,2 +1,53 @@
-package br.com.saraivamotos.dto;import java.math.BigDecimal;import java.time.*;import java.util.*;import br.com.saraivamotos.domain.*;
-public record ContaReceberResponse(Long id,Long vendaId,String numeroVenda,Long clienteId,String clienteNome,BigDecimal valorOriginal,BigDecimal valorRecebido,BigDecimal saldoPendente,LocalDate vencimento,String situacao,LocalDateTime dataCriacao,LocalDateTime dataQuitacao,List<RecebimentoResponse> recebimentos){public static ContaReceberResponse from(ContaReceber c,Venda v){boolean pendente=c.getStatus()==StatusContaReceber.ABERTA||c.getStatus()==StatusContaReceber.PARCIAL;String situacao=pendente&&c.getVencimento().isBefore(LocalDate.now())?"VENCIDA":c.getStatus().name();return new ContaReceberResponse(c.getId(),c.getVendaId(),v.getNumeroVenda(),c.getClienteId(),v.getClienteNome(),c.getValorOriginal(),c.getValorRecebido(),c.getSaldoPendente(),c.getVencimento(),situacao,c.getDataCriacao(),c.getDataQuitacao(),c.getRecebimentos().stream().map(RecebimentoResponse::from).toList());}}
+package br.com.saraivamotos.dto;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import br.com.saraivamotos.domain.ContaReceber;
+import br.com.saraivamotos.domain.StatusContaReceber;
+import br.com.saraivamotos.domain.Venda;
+
+public record ContaReceberResponse(
+        Long id,
+        Long vendaId,
+        String numeroVenda,
+        LocalDateTime dataVenda,
+        Long clienteId,
+        String clienteNome,
+        BigDecimal valorOriginal,
+        BigDecimal valorRecebido,
+        BigDecimal saldoPendente,
+        LocalDate vencimento,
+        String situacao,
+        LocalDateTime dataCriacao,
+        LocalDateTime dataQuitacao,
+        String observacoes,
+        List<RecebimentoResponse> recebimentos) {
+
+    public static ContaReceberResponse from(ContaReceber conta, Venda venda) {
+        boolean pendente = conta.getStatus() == StatusContaReceber.ABERTA
+                || conta.getStatus() == StatusContaReceber.PARCIAL;
+        String situacao = pendente && conta.getVencimento().isBefore(LocalDate.now())
+                ? "VENCIDA"
+                : conta.getStatus().name();
+
+        return new ContaReceberResponse(
+                conta.getId(),
+                conta.getVendaId(),
+                venda.getNumeroVenda(),
+                venda.getDataHora(),
+                conta.getClienteId(),
+                venda.getClienteNome(),
+                conta.getValorOriginal(),
+                conta.getValorRecebido(),
+                conta.getSaldoPendente(),
+                conta.getVencimento(),
+                situacao,
+                conta.getDataCriacao(),
+                conta.getDataQuitacao(),
+                venda.getObservacoes(),
+                conta.getRecebimentos().stream().map(RecebimentoResponse::from).toList());
+    }
+}

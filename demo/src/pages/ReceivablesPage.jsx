@@ -1,6 +1,220 @@
-import { useEffect,useRef,useState } from "react";import Panel from "../components/Panel.jsx";import EmptyState from "../components/EmptyState.jsx";import { PAYMENT_METHODS,PAYMENT_METHOD_LABELS } from "../data/domain.js";import { listReceivables,receivePayment,reversePayment } from "../services/receivablesApi.js";import { saveReceivableStatementPdf } from "../services/receivableStatementPdf.js";import { formatCurrency,formatDateTime } from "../utils/formatters.js";
-const LABELS={ABERTA:"Aberta",PARCIAL:"Parcialmente paga",QUITADA:"Quitada",VENCIDA:"Vencida",CANCELADA:"Cancelada"};
-export default function ReceivablesPage(){const [accounts,setAccounts]=useState([]);const [payment,setPayment]=useState({id:null,valor:"",formaPagamento:""});const [error,setError]=useState("");const [busy,setBusy]=useState(false);const attempts=useRef(new Map());async function load(){try{setAccounts(await listReceivables());setError("");}catch(e){setError(e.message);}}useEffect(()=>{load();},[]);const pending=accounts.reduce((s,a)=>s+Number(a.saldoPendente),0);const received=accounts.reduce((s,a)=>s+Number(a.valorRecebido),0);
- async function submit(){const payload={valor:Number(payment.valor),formaPagamento:payment.formaPagamento};const signature=JSON.stringify(payload);const old=attempts.current.get(payment.id);const attempt=old?.signature===signature?old:{key:crypto.randomUUID(),signature};attempts.current.set(payment.id,attempt);setBusy(true);try{await receivePayment(payment.id,payload,attempt.key);attempts.current.delete(payment.id);setPayment({id:null,valor:"",formaPagamento:""});await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
- async function reverse(receipt){const motivo=prompt("Motivo do estorno:");if(!motivo)return;try{await reversePayment(receipt.id,motivo);await load();}catch(e){setError(e.message);}}
- return <div className="page-stack"><div className="stats-grid"><div className="stat-card"><span>Total pendente</span><strong>{formatCurrency(pending)}</strong></div><div className="stat-card"><span>Total recebido</span><strong>{formatCurrency(received)}</strong></div><div className="stat-card"><span>Contas vencidas</span><strong>{accounts.filter(a=>a.situacao==="VENCIDA").length}</strong></div></div><Panel title="Contas a receber" description="Pagamentos efetivos são registrados no caixa aberto.">{error&&<div className="feedback-message feedback-danger">{error}</div>}{accounts.length===0?<EmptyState title="Nenhuma conta a receber" description="Vendas a prazo aparecerão aqui."/>:<div className="receivables-list">{accounts.map(a=><article key={a.id}><div><strong>{a.clienteNome}</strong><span>Venda {a.numeroVenda} · vence em {a.vencimento}</span></div><span className={`status-pill status-${a.situacao.toLowerCase()}`}>{LABELS[a.situacao]}</span><div><span>Original {formatCurrency(a.valorOriginal)}</span><span>Recebido {formatCurrency(a.valorRecebido)}</span><strong>Saldo {formatCurrency(a.saldoPendente)}</strong></div><div className="form-actions-pro"><button className="secondary-button" onClick={()=>saveReceivableStatementPdf(a)}>Salvar extrato PDF</button>{Number(a.saldoPendente)>0&&a.situacao!=="CANCELADA"&&<button className="primary-button" onClick={()=>setPayment({id:a.id,valor:String(a.saldoPendente),formaPagamento:""})}>Registrar pagamento</button>}</div>{payment.id===a.id&&<div className="receivable-payment"><input type="number" min="0.01" max={a.saldoPendente} step="0.01" value={payment.valor} onChange={e=>setPayment({...payment,valor:e.target.value})}/><select value={payment.formaPagamento} onChange={e=>setPayment({...payment,formaPagamento:e.target.value})}><option value="">Forma de pagamento</option>{PAYMENT_METHODS.filter(m=>m!=="A_PRAZO").map(m=><option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}</select><button className="primary-button" disabled={busy||!payment.formaPagamento} onClick={submit}>Confirmar</button></div>}<details><summary>Histórico de pagamentos</summary>{a.recebimentos.map(r=><div className="receivable-history" key={r.id}><span>{formatDateTime(r.dataHora)} · {PAYMENT_METHOD_LABELS[r.formaPagamento]}</span><strong>{formatCurrency(r.valor)} {r.estornado&&"· Estornado"}</strong>{!r.estornado&&<button className="ghost-button" onClick={()=>reverse(r)}>Estornar</button>}</div>)}</details></article>)}</div>}</Panel></div>;}
+import { useEffect, useMemo, useRef, useState } from "react";
+import EmptyState from "../components/EmptyState.jsx";
+import Panel from "../components/Panel.jsx";
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from "../data/domain.js";
+import { listReceivables, receivePayment, reversePayment } from "../services/receivablesApi.js";
+import { calculateOutstandingBalance, groupReceivablesByCustomer } from "../services/receivables.js";
+import { saveReceivableStatementPdf } from "../services/receivableStatementPdf.js";
+import { formatCurrency, formatDateTime } from "../utils/formatters.js";
+
+const STATUS_LABELS = {
+  ABERTA: "Aberta",
+  PARCIAL: "Parcialmente paga",
+  QUITADA: "Quitada",
+  VENCIDA: "Vencida",
+  CANCELADA: "Cancelada"
+};
+
+const EMPTY_PAYMENT = { id: null, valor: "", formaPagamento: "" };
+
+function formatCivilDate(value) {
+  if (!value) return "Não informado";
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(`${value}T12:00:00`));
+}
+
+function PaymentHistory({ account, onReverse }) {
+  const payments = account.recebimentos || [];
+  return <details className="receivable-payment-history">
+    <summary>Histórico de pagamentos ({payments.length})</summary>
+    {payments.length === 0
+      ? <p className="receivable-empty-history">Nenhum pagamento registrado.</p>
+      : payments.map((receipt) => <div className="receivable-history" key={receipt.id}>
+        <span>{formatDateTime(receipt.dataHora)} · {PAYMENT_METHOD_LABELS[receipt.formaPagamento] || receipt.formaPagamento}</span>
+        <strong>{formatCurrency(receipt.valor)} {receipt.estornado && "· Estornado"}</strong>
+        {!receipt.estornado && <button className="ghost-button" type="button" onClick={() => onReverse(receipt)}>Estornar</button>}
+      </div>)}
+  </details>;
+}
+
+function PaymentForm({ account, payment, busy, onChange, onSubmit }) {
+  if (payment.id !== account.id) return null;
+  return <form className="receivable-payment" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+    <input
+      aria-label={`Valor do pagamento da venda ${account.numeroVenda}`}
+      type="number"
+      min="0.01"
+      max={account.saldoPendente}
+      step="0.01"
+      value={payment.valor}
+      onChange={(event) => onChange({ ...payment, valor: event.target.value })}
+      required
+    />
+    <select
+      aria-label={`Forma de pagamento da venda ${account.numeroVenda}`}
+      value={payment.formaPagamento}
+      onChange={(event) => onChange({ ...payment, formaPagamento: event.target.value })}
+      required
+    >
+      <option value="">Forma de pagamento</option>
+      {PAYMENT_METHODS.filter((method) => method !== "A_PRAZO").map((method) => (
+        <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>
+      ))}
+    </select>
+    <button className="primary-button" disabled={busy || !payment.formaPagamento}>Confirmar</button>
+  </form>;
+}
+
+function ReceivableAccount({ account, payment, busy, onPaymentChange, onPaymentSubmit, onReverse }) {
+  const canReceive = Number(account.saldoPendente) > 0 && account.situacao !== "CANCELADA";
+  return <article className="receivable-account">
+    <div className="receivable-account-heading">
+      <div>
+        <span>Venda</span>
+        <strong>{account.numeroVenda}</strong>
+        <small>Vencimento: {formatCivilDate(account.vencimento)}</small>
+      </div>
+      <span className={`status-pill status-${account.situacao.toLowerCase()}`}>
+        {STATUS_LABELS[account.situacao] || account.situacao}
+      </span>
+    </div>
+    <div className="receivable-account-values">
+      <span>Valor original <strong>{formatCurrency(account.valorOriginal)}</strong></span>
+      <span>Total recebido <strong>{formatCurrency(account.valorRecebido)}</strong></span>
+      <span>Saldo <strong>{formatCurrency(account.saldoPendente)}</strong></span>
+    </div>
+    <div className="form-actions-pro">
+      <button className="secondary-button" type="button" onClick={() => saveReceivableStatementPdf(account)}>Salvar extrato PDF</button>
+      {canReceive && <button
+        className="primary-button"
+        type="button"
+        onClick={() => onPaymentChange({ id: account.id, valor: String(account.saldoPendente), formaPagamento: "" })}
+      >Registrar pagamento</button>}
+    </div>
+    <PaymentForm
+      account={account}
+      payment={payment}
+      busy={busy}
+      onChange={onPaymentChange}
+      onSubmit={onPaymentSubmit}
+    />
+    <PaymentHistory account={account} onReverse={onReverse} />
+  </article>;
+}
+
+function CustomerReceivables({ group, ...accountActions }) {
+  const debtLabel = group.quantidadeDividas === 1 ? "1 dívida" : `${group.quantidadeDividas} dívidas`;
+  return <details className="receivable-customer-group">
+    <summary>
+      <div>
+        <strong>{group.clienteNome}</strong>
+        <span>{debtLabel}</span>
+      </div>
+      <div>
+        <span>Saldo total</span>
+        <strong>{formatCurrency(group.saldoTotal)}</strong>
+      </div>
+    </summary>
+    <div className="receivable-customer-accounts">
+      {group.contas.map((account) => (
+        <ReceivableAccount key={account.id} account={account} {...accountActions} />
+      ))}
+    </div>
+  </details>;
+}
+
+export default function ReceivablesPage() {
+  const [accounts, setAccounts] = useState([]);
+  const [search, setSearch] = useState("");
+  const [payment, setPayment] = useState(EMPTY_PAYMENT);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const attempts = useRef(new Map());
+
+  async function load() {
+    try {
+      setAccounts(await listReceivables());
+      setError("");
+    } catch (failure) {
+      setError(failure.message);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  const customerGroups = useMemo(
+    () => groupReceivablesByCustomer(accounts, search),
+    [accounts, search]
+  );
+  const pending = calculateOutstandingBalance(accounts);
+  const received = accounts.reduce((sum, account) => sum + Number(account.valorRecebido), 0);
+  const overdue = accounts.filter((account) => account.situacao === "VENCIDA").length;
+
+  async function submitPayment() {
+    const payload = { valor: Number(payment.valor), formaPagamento: payment.formaPagamento };
+    const signature = JSON.stringify(payload);
+    const previous = attempts.current.get(payment.id);
+    const attempt = previous?.signature === signature
+      ? previous
+      : { key: crypto.randomUUID(), signature };
+    attempts.current.set(payment.id, attempt);
+    setBusy(true);
+    try {
+      await receivePayment(payment.id, payload, attempt.key);
+      attempts.current.delete(payment.id);
+      setPayment(EMPTY_PAYMENT);
+      await load();
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reversePaymentReceipt(receipt) {
+    const reason = prompt("Motivo do estorno:");
+    if (!reason) return;
+    try {
+      await reversePayment(receipt.id, reason);
+      await load();
+    } catch (failure) {
+      setError(failure.message);
+    }
+  }
+
+  return <div className="page-stack">
+    <div className="stats-grid">
+      <div className="stat-card"><span>Total pendente</span><strong>{formatCurrency(pending)}</strong></div>
+      <div className="stat-card"><span>Total recebido</span><strong>{formatCurrency(received)}</strong></div>
+      <div className="stat-card"><span>Contas vencidas</span><strong>{overdue}</strong></div>
+    </div>
+    <Panel title="Contas a receber" description="Pagamentos efetivos são registrados no caixa aberto.">
+      {error && <div className="feedback-message feedback-danger" role="alert">{error}</div>}
+      {accounts.length === 0
+        ? <EmptyState title="Nenhuma conta a receber" description="Vendas a prazo aparecerão aqui." />
+        : <>
+          <label className="receivables-search">
+            Pesquisar cliente
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Digite o nome do cliente"
+            />
+          </label>
+          {customerGroups.length === 0
+            ? <EmptyState title="Nenhum cliente encontrado" description="Tente pesquisar por outro nome." />
+            : <div className="receivables-list">
+              {customerGroups.map((group) => <CustomerReceivables
+                key={group.key}
+                group={group}
+                payment={payment}
+                busy={busy}
+                onPaymentChange={setPayment}
+                onPaymentSubmit={submitPayment}
+                onReverse={reversePaymentReceipt}
+              />)}
+            </div>}
+        </>}
+    </Panel>
+  </div>;
+}

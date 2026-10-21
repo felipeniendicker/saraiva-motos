@@ -4,15 +4,7 @@ import {
   PRICE_TYPE_LABELS
 } from "../data/domain.js";
 import { getSaleReceiptData } from "../services/sales.js";
-import { formatCurrency } from "../utils/formatters.js";
-
-function formatDateTime(value) {
-  if (!value) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
+import { formatCurrency, formatDateTime } from "../utils/formatters.js";
 
 export default function SaleReceipt({ sale, customers = [] }) {
   const receipt = getSaleReceiptData(sale, customers);

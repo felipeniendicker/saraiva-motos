@@ -77,6 +77,24 @@ class ContaReceberServiceTests {
     }
 
     @Test
+    void quitacaoAtualizaSomenteAContaDoPagamento() {
+        when(conta.getId()).thenReturn(4L);
+        String chave = UUID.randomUUID().toString();
+        RecebimentoRequest request = new RecebimentoRequest(new BigDecimal("100.00"), FormaPagamento.PIX);
+        when(recebimentos.findByChaveIdempotencia(chave)).thenReturn(Optional.empty());
+        when(contas.buscarParaAtualizar(4L)).thenReturn(Optional.of(conta));
+        when(caixas.registrarRecebimento(any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.registrar(4L, chave, request, operador);
+
+        assertThat(conta.getValorRecebido()).isEqualByComparingTo("100.00");
+        assertThat(conta.getSaldoPendente()).isZero();
+        assertThat(conta.getStatus()).isEqualTo(StatusContaReceber.QUITADA);
+        assertThat(conta.getDataQuitacao()).isNotNull();
+        verify(contas).save(conta);
+    }
+
+    @Test
     void recusaPagamentoAcimaDoSaldo() {
         String chave = UUID.randomUUID().toString();
         when(recebimentos.findByChaveIdempotencia(chave)).thenReturn(Optional.empty());

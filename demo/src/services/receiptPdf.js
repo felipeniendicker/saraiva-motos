@@ -1,16 +1,11 @@
 import { getSalePaymentLabel, PRICE_TYPE_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
+import { formatDateTime } from "../utils/formatters.js";
 import { getSaleReceiptData } from "./sales.js";
 import { buildThermalPdf, downloadPdf } from "./textPdf.js";
 import { companyHeader, documentFooter } from "./thermalDocument.js";
 
 const MONEY = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const PERCENT = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 });
-const DATE_TIME = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-
-function formatDateTime(value) {
-  return value ? DATE_TIME.format(new Date(value)) : "Não informado";
-}
-
 function saleItemElements(item) {
   return [
     { type: "text", text: item.descricaoProduto || "Item sem descrição", bold: true, fontSize: 7.6, lineHeight: 9.4 },

@@ -9,6 +9,7 @@ import { addStock, adjustStock, listStockMovements, removeStock } from "../servi
 import { getOperationAttempt } from "../services/operationAttempt.js";
 import { setAppUpdateBlocked } from "../services/updateSafety.js";
 import { saveThenRefresh } from "../services/mutationFlow.js";
+import { formatDateTime } from "../utils/formatters.js";
 
 const initialForm = { produtoId: "", operacao: "ENTRADA", valor: "1", motivo: "" };
 const initialFilters = { productId: "", type: "", dateFrom: "", dateTo: "" };
@@ -19,11 +20,6 @@ const movementLabels = {
 
 function isEntry(type) {
   return ["ENTRADA", "AJUSTE_ENTRADA", "CANCELAMENTO_VENDA"].includes(type);
-}
-
-function formatDateTime(value) {
-  if (!value) return "Não informada";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
 export default function InventoryPage() {

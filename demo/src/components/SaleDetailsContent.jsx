@@ -1,10 +1,9 @@
 import { getSalePaymentLabel, PRICE_TYPE_LABELS, SALE_STATUS_LABELS } from "../data/domain.js";
 import { getSaleCustomerLabel, getSaleDiscountPercentage } from "../services/sales.js";
-import { formatCurrency } from "../utils/formatters.js";
+import { formatCurrency, formatDateTime } from "../utils/formatters.js";
 
 export function formatSaleDateTime(value) {
-  if (!value) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatDateTime(value);
 }
 
 export default function SaleDetailsContent({ sale, customers = [] }) {

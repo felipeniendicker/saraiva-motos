@@ -4,7 +4,7 @@ import Panel from "../components/Panel.jsx";
 import CustomerSalesHistory from "../components/CustomerSalesHistory.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, PRICE_TYPE_LABELS, getDefaultPriceType } from "../data/domain.js";
-import { formatPhone } from "../utils/formatters.js";
+import { formatDate, formatPhone } from "../utils/formatters.js";
 import * as clientsApi from "../services/clientsApi.js";
 import { listSales } from "../services/salesApi.js";
 import { CUSTOMER_PROFILE_TABS, getNextCustomerProfileTab } from "../services/customerProfileTabs.js";
@@ -210,7 +210,7 @@ function BackendCustomersPage() {
             <div role="tabpanel" id="customer-panel-dados" aria-labelledby="customer-tab-dados" hidden={activeTab !== "dados"}>
               <div className="customer-profile-summary">
                 <div><span>Telefone</span><strong>{selected.telefone || "Não informado"}</strong></div><div><span>CPF / CNPJ</span><strong>{selected.cpfCnpj || "Não informado"}</strong></div>
-                <div><span>Endereço</span><strong>{selected.endereco || "Não informado"}</strong></div><div><span>Cadastro</span><strong>{selected.dataCadastro ? new Date(selected.dataCadastro).toLocaleDateString("pt-BR") : "Não informado"}</strong></div>
+                <div><span>Endereço</span><strong>{selected.endereco || "Não informado"}</strong></div><div><span>Cadastro</span><strong>{formatDate(selected.dataCadastro)}</strong></div>
                 <div className="field-wide"><span>Observações comerciais</span><strong>{selected.observacoes || "Sem observações"}</strong></div>
               </div>
             </div>
