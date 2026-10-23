@@ -79,6 +79,35 @@ class EstoqueServiceTests {
     }
 
     @Test
+    void entradaInicialCriaHistoricoEAtualizaProdutoSemNovaBusca() {
+        Produto produto = produto(0, true);
+
+        MovimentacaoEstoqueResponse response = service.registrarEntradaInicial(
+                produto,
+                new EntradaEstoqueRequest(1L, 7, "Estoque inicial do cadastro"));
+
+        assertEquals(TipoMovimentacaoEstoque.ENTRADA, response.tipo());
+        assertEquals(7, response.quantidade());
+        assertEquals(0, response.saldoAnterior());
+        assertEquals(7, response.saldoPosterior());
+        assertEquals("Estoque inicial do cadastro", response.motivo());
+        assertEquals(7, produto.getQuantidadeEstoque());
+        verify(produtoRepository, never()).findByIdForUpdate(any());
+        verify(movimentacaoRepository).save(any(MovimentacaoEstoque.class));
+    }
+
+    @Test
+    void entradaInicialNaoPodeSerDuplicada() {
+        Produto produto = produto(2, true);
+
+        assertThrows(OperacaoEstoqueInvalidaException.class, () -> service.registrarEntradaInicial(
+                produto,
+                new EntradaEstoqueRequest(1L, 2, "Estoque inicial do cadastro")));
+
+        verify(movimentacaoRepository, never()).save(any());
+    }
+
+    @Test
     void entradaZeroEhRejeitada() {
         assertThrows(IllegalArgumentException.class, () -> service.entrada(new EntradaEstoqueRequest(1L, 0, null)));
         verify(produtoRepository, never()).findByIdForUpdate(any());

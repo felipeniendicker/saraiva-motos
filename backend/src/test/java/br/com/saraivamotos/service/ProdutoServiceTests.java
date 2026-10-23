@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 import br.com.saraivamotos.domain.Produto;
+import br.com.saraivamotos.dto.EntradaEstoqueRequest;
 import br.com.saraivamotos.dto.ProdutoRequest;
 import br.com.saraivamotos.dto.ProdutoResponse;
 import br.com.saraivamotos.exception.CodigoBarrasDuplicadoException;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,12 +41,14 @@ class ProdutoServiceTests {
 
     @Mock
     private ProdutoRepository repository;
+    @Mock
+    private EstoqueService estoqueService;
 
     private ProdutoService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProdutoService(repository);
+        service = new ProdutoService(repository, estoqueService);
         lenient().when(repository.save(any(Produto.class))).thenAnswer(invocation -> {
             Produto produto = invocation.getArgument(0);
             if (produto.getId() == null) {
@@ -50,17 +56,60 @@ class ProdutoServiceTests {
             }
             return produto;
         });
+        lenient().doAnswer(invocation -> {
+            Produto produto = invocation.getArgument(0);
+            EntradaEstoqueRequest entrada = invocation.getArgument(1);
+            produto.setQuantidadeEstoque(entrada.quantidade());
+            return null;
+        }).when(estoqueService).registrarEntradaInicial(any(Produto.class), any(EntradaEstoqueRequest.class));
     }
 
     @Test
-    void cadastroValido() {
+    void cadastroComEstoquePositivoRegistraEntradaInicial() {
         ProdutoResponse response = service.criar(request("00123456"));
 
         assertEquals(1L, response.id());
         assertEquals("Pastilha de freio", response.nome());
         assertTrue(response.ativo());
         assertNotNull(response.dataCadastro());
+        assertEquals(5, response.quantidadeEstoque());
+
+        ArgumentCaptor<EntradaEstoqueRequest> entrada = ArgumentCaptor.forClass(EntradaEstoqueRequest.class);
+        verify(estoqueService).registrarEntradaInicial(any(Produto.class), entrada.capture());
+        assertEquals(1L, entrada.getValue().produtoId());
+        assertEquals(5, entrada.getValue().quantidade());
+        assertEquals("Estoque inicial do cadastro", entrada.getValue().observacao());
+    }
+
+    @Test
+    void cadastroComEstoqueZeroNaoCriaMovimentacao() {
+        ProdutoResponse response = service.criar(request("00123456", 0));
+
         assertEquals(0, response.quantidadeEstoque());
+        verify(estoqueService, never()).registrarEntradaInicial(any(), any());
+    }
+
+    @Test
+    void falhaNaEntradaInicialInterrompeCadastroComEstoqueZerado() {
+        doThrow(new RuntimeException("falha simulada"))
+                .when(estoqueService).registrarEntradaInicial(any(), any());
+        ArgumentCaptor<Produto> produtoSalvo = ArgumentCaptor.forClass(Produto.class);
+
+        assertThrows(RuntimeException.class, () -> service.criar(request("00123456")));
+
+        verify(repository).save(produtoSalvo.capture());
+        assertEquals(0, produtoSalvo.getValue().getQuantidadeEstoque());
+    }
+
+    @Test
+    void quantidadeInicialNegativaOuDecimalFalhaAntesDePersistir() {
+        ProdutoRequest negativa = request("00123456", new BigDecimal("-1"));
+        ProdutoRequest decimal = request("00123456", new BigDecimal("1.5"));
+
+        assertThrows(IllegalArgumentException.class, () -> service.criar(negativa));
+        assertThrows(IllegalArgumentException.class, () -> service.criar(decimal));
+        verify(repository, never()).save(any());
+        verify(estoqueService, never()).registrarEntradaInicial(any(), any());
     }
 
     @Test
@@ -263,6 +312,14 @@ class ProdutoServiceTests {
     }
 
     private ProdutoRequest request(String codigoBarras) {
+        return request(codigoBarras, 5);
+    }
+
+    private ProdutoRequest request(String codigoBarras, int quantidadeEstoque) {
+        return request(codigoBarras, BigDecimal.valueOf(quantidadeEstoque));
+    }
+
+    private ProdutoRequest request(String codigoBarras, BigDecimal quantidadeEstoque) {
         return new ProdutoRequest(
                 " Pastilha de freio ",
                 "REF-01",
@@ -273,7 +330,7 @@ class ProdutoServiceTests {
                 new BigDecimal("10.00"),
                 new BigDecimal("25.50"),
                 new BigDecimal("20.00"),
-                5,
+                quantidadeEstoque,
                 2,
                 "Teste");
     }

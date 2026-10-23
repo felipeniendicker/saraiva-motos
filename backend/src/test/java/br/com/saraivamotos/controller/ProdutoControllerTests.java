@@ -82,6 +82,21 @@ class ProdutoControllerTests {
     }
 
     @Test
+    void estoqueDecimalRetornaBadRequest() throws Exception {
+        assertInvalid(payloadWith("\"quantidadeEstoque\":5", "\"quantidadeEstoque\":1.5"));
+    }
+
+    @Test
+    void estoqueZeroEhAceito() throws Exception {
+        when(service.criar(any())).thenReturn(response());
+
+        mockMvc.perform(post("/api/produtos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadWith("\"quantidadeEstoque\":5", "\"quantidadeEstoque\":0")))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void estoqueMinimoNegativoRetornaBadRequest() throws Exception {
         assertInvalid(payloadWith("\"estoqueMinimo\":2", "\"estoqueMinimo\":-1"));
     }

@@ -1,9 +1,11 @@
 package br.com.saraivamotos.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import br.com.saraivamotos.domain.Produto;
+import br.com.saraivamotos.dto.EntradaEstoqueRequest;
 import br.com.saraivamotos.dto.ProdutoRequest;
 import br.com.saraivamotos.dto.ProdutoResponse;
 import br.com.saraivamotos.exception.CodigoBarrasDuplicadoException;
@@ -18,20 +20,41 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProdutoService {
 
     private final ProdutoRepository repository;
+    private final EstoqueService estoqueService;
 
-    public ProdutoService(ProdutoRepository repository) {
+    public ProdutoService(ProdutoRepository repository, EstoqueService estoqueService) {
         this.repository = repository;
+        this.estoqueService = estoqueService;
     }
 
     @Transactional
     public ProdutoResponse criar(ProdutoRequest request) {
+        int quantidadeInicial = validarQuantidadeInicial(request.quantidadeEstoque());
         Produto produto = new Produto();
         aplicarDados(produto, request);
         produto.setQuantidadeEstoque(0);
         validarCodigoBarras(produto.getCodigoBarras(), null);
         produto.setAtivo(true);
         produto.setDataCadastro(LocalDateTime.now());
-        return ProdutoResponse.from(repository.save(produto));
+        Produto produtoSalvo = repository.save(produto);
+        if (quantidadeInicial > 0) {
+            estoqueService.registrarEntradaInicial(
+                    produtoSalvo,
+                    new EntradaEstoqueRequest(produtoSalvo.getId(), quantidadeInicial, "Estoque inicial do cadastro"));
+        }
+        return ProdutoResponse.from(produtoSalvo);
+    }
+
+    private int validarQuantidadeInicial(BigDecimal quantidade) {
+        if (quantidade == null || quantidade.signum() < 0) {
+            throw new IllegalArgumentException("A quantidade inicial não pode ser negativa.");
+        }
+        try {
+            return quantidade.intValueExact();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException(
+                    "A quantidade inicial deve ser um número inteiro dentro do limite suportado.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -123,7 +146,6 @@ public class ProdutoService {
         produto.setValorCusto(request.valorCusto());
         produto.setPrecoVarejo(request.precoVarejo());
         produto.setPrecoRevenda(request.precoRevenda());
-        produto.setQuantidadeEstoque(request.quantidadeEstoque());
         produto.setEstoqueMinimo(request.estoqueMinimo());
         produto.setObservacoes(normalizarOpcional(request.observacoes()));
     }

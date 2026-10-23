@@ -14,6 +14,7 @@ import {
   lookupProductByBarcode,
   normalizeBarcode
 } from "../services/productLookup.js";
+import { buildProductPayload } from "../services/productForm.js";
 import {
   createProduct,
   deactivateProduct,
@@ -169,17 +170,13 @@ export default function ProductsPage() {
 
   async function submit(event) {
     event.preventDefault();
-    const productData = {
-      ...form,
-      nome: form.nome.trim(),
-      codigoReferencia: form.codigoReferencia.trim(),
-      codigoBarras: normalizeBarcode(form.codigoBarras),
-      valorCusto: Number(form.valorCusto),
-      precoVarejo: Number(form.precoVarejo),
-      precoRevenda: Number(form.precoRevenda),
-      quantidadeEstoque: Number(form.quantidadeEstoque),
-      estoqueMinimo: Number(form.estoqueMinimo)
-    };
+    let productData;
+    try {
+      productData = buildProductPayload(form);
+    } catch (error) {
+      setFeedback({ type: "danger", message: error.message });
+      return;
+    }
 
     if (apiSaving) return;
     setApiSaving(true);
@@ -403,13 +400,23 @@ export default function ProductsPage() {
           </fieldset>
           <fieldset className="product-form-section product-stock-section">
           <legend>Estoque</legend>
-          <label>
-            Estoque atual (altere na tela Estoque)
-            <input type="number" min="0" value={form.quantidadeEstoque} onChange={(event) => update("quantidadeEstoque", event.target.value)} required disabled />
+          <label className={form.id ? "" : "initial-stock-field"}>
+            {form.id ? "Estoque atual (altere na tela Estoque)" : "Quantidade inicial em estoque"}
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="1"
+              value={form.quantidadeEstoque}
+              onChange={(event) => update("quantidadeEstoque", event.target.value)}
+              required
+              disabled={Boolean(form.id)}
+            />
+            {!form.id && <small>Será registrada como entrada inicial no histórico de estoque.</small>}
           </label>
           <label>
             Estoque mínimo
-            <input type="number" min="0" value={form.estoqueMinimo} onChange={(event) => update("estoqueMinimo", event.target.value)} required />
+            <input type="number" inputMode="numeric" min="0" step="1" value={form.estoqueMinimo} onChange={(event) => update("estoqueMinimo", event.target.value)} required />
           </label>
           </fieldset>
           <fieldset className="product-form-section product-complement-section">

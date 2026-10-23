@@ -53,6 +53,27 @@ public class EstoqueService {
     }
 
     @Transactional
+    public MovimentacaoEstoqueResponse registrarEntradaInicial(
+            Produto produto,
+            EntradaEstoqueRequest request) {
+        validarQuantidadeEntrada(request.quantidade());
+        if (produto.getId() == null || !produto.getId().equals(request.produtoId())) {
+            throw new IllegalArgumentException("O produto da entrada inicial é inválido.");
+        }
+        if (produto.getQuantidadeEstoque() != 0) {
+            throw new OperacaoEstoqueInvalidaException(
+                    "A entrada inicial só pode ser registrada para produto com estoque zerado.");
+        }
+        return registrar(
+                produto,
+                TipoMovimentacaoEstoque.ENTRADA,
+                request.quantidade(),
+                0,
+                request.quantidade(),
+                normalizarMotivoEntrada(request.observacao()));
+    }
+
+    @Transactional
     public MovimentacaoEstoqueResponse ajustar(AjusteEstoqueRequest request) {
         validarAjuste(request);
         Produto produto = buscarProdutoParaMovimentacao(request.produtoId());
