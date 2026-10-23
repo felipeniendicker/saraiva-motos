@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   formatCurrency,
+  formatCivilDate,
   formatDate,
   formatDateTime,
   formatMonthLabel,
@@ -35,6 +36,11 @@ test("interpreta registro histórico sem offset como horário civil de São Paul
 
 test("formata a data do instante na zona da loja", () => {
   assert.equal(formatDate("2026-10-22T01:30:00Z"), "21/10/2026");
+});
+
+test("formata data civil sem conversão de fuso", () => {
+  assert.equal(formatCivilDate("2026-11-10"), "10/11/2026");
+  assert.equal(formatCivilDate("valor-inválido", "-"), "-");
 });
 
 test("mantém o mês da loja na virada mensal independentemente do fuso do navegador", () => {

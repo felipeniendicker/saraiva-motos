@@ -3,9 +3,10 @@ import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from "../data/domain.js";
 import { listReceivables, receivePayment, reversePayment } from "../services/receivablesApi.js";
+import { saveConsolidatedReceivablesPdf } from "../services/receivableConsolidatedPdf.js";
 import { calculateOutstandingBalance, groupReceivablesByCustomer } from "../services/receivables.js";
 import { saveReceivableStatementPdf } from "../services/receivableStatementPdf.js";
-import { formatCurrency, formatDateTime } from "../utils/formatters.js";
+import { formatCivilDate, formatCurrency, formatDateTime } from "../utils/formatters.js";
 
 const STATUS_LABELS = {
   ABERTA: "Aberta",
@@ -16,11 +17,6 @@ const STATUS_LABELS = {
 };
 
 const EMPTY_PAYMENT = { id: null, valor: "", formaPagamento: "" };
-
-function formatCivilDate(value) {
-  if (!value) return "Não informado";
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(`${value}T12:00:00`));
-}
 
 function PaymentHistory({ account, onReverse }) {
   const payments = account.recebimentos || [];
@@ -109,9 +105,18 @@ function CustomerReceivables({ group, ...accountActions }) {
         <strong>{group.clienteNome}</strong>
         <span>{debtLabel}</span>
       </div>
-      <div>
+      <div className="receivable-customer-financial">
         <span>Saldo total</span>
         <strong>{formatCurrency(group.saldoTotal)}</strong>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            saveConsolidatedReceivablesPdf(group);
+          }}
+        >Imprimir todas as dívidas</button>
       </div>
     </summary>
     <div className="receivable-customer-accounts">
@@ -202,7 +207,10 @@ export default function ReceivablesPage() {
             />
           </label>
           {customerGroups.length === 0
-            ? <EmptyState title="Nenhum cliente encontrado" description="Tente pesquisar por outro nome." />
+            ? <EmptyState
+              title={search ? "Nenhum cliente encontrado" : "Nenhuma dívida pendente"}
+              description={search ? "Tente pesquisar por outro nome." : "Todas as contas estão quitadas ou não possuem saldo para cobrança."}
+            />
             : <div className="receivables-list">
               {customerGroups.map((group) => <CustomerReceivables
                 key={group.key}

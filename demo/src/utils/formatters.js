@@ -29,6 +29,8 @@ const BUSINESS_DATE = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeZone: BUSINESS_TIME_ZONE
 });
+const CIVIL_DATE = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" });
+const ISO_CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const BUSINESS_MONTH_LABEL = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
   year: "numeric",
@@ -97,6 +99,15 @@ export function formatDate(value, fallback = "Não informado") {
   if (!value) return fallback;
   const date = parseDateTime(value);
   return Number.isNaN(date.getTime()) ? fallback : BUSINESS_DATE.format(date);
+}
+
+export function formatCivilDate(value, fallback = "Não informado") {
+  if (!value) return fallback;
+  const match = String(value).match(ISO_CIVIL_DATE);
+  if (!match) return fallback;
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12));
+  return Number.isNaN(date.getTime()) ? fallback : CIVIL_DATE.format(date);
 }
 
 export function formatPhone(value) {

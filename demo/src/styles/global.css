@@ -101,6 +101,8 @@
 .receivable-customer-group > summary > div:last-child { margin-left: auto; text-align: right; }
 .receivable-customer-group > summary > div:last-child strong { font-size: 1.15rem; }
 .receivable-customer-group > summary span { color: var(--muted); font-size: 0.84rem; }
+.receivable-customer-financial { justify-items: end; }
+.receivable-customer-financial .secondary-button { margin-top: 6px; white-space: nowrap; }
 .receivable-customer-accounts { background: var(--color-surface-soft); display: grid; gap: 10px; padding: 12px; }
 .receivable-account { background: var(--color-surface); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 12px; padding: 14px; }
 .receivable-account-heading { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
@@ -122,7 +124,8 @@
 @media (max-width: 800px) { .quote-items article { grid-template-columns: 1fr 1fr; } .quote-items article > div { grid-column: 1 / -1; } }
 @media (max-width: 600px) {
   .receivables-search { max-width: none; }
-  .receivable-customer-group > summary { align-items: flex-start; }
+  .receivable-customer-group > summary { align-items: flex-start; flex-wrap: wrap; }
+  .receivable-customer-financial { justify-items: stretch; margin-left: 0 !important; text-align: left !important; width: 100%; }
   .receivable-account-values { grid-template-columns: minmax(0, 1fr); }
   .receivable-account-heading { align-items: stretch; flex-direction: column; }
   .receivable-account-heading .status-pill { align-self: flex-start; }

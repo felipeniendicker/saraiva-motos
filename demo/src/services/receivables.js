@@ -7,7 +7,11 @@ const CUSTOMER_NAME_COLLATOR = new Intl.Collator("pt-BR", {
 const OUTSTANDING_STATUSES = new Set(["ABERTA", "PARCIAL", "VENCIDA"]);
 
 export function isOutstandingReceivable(account) {
-  return OUTSTANDING_STATUSES.has(account.situacao);
+  return OUTSTANDING_STATUSES.has(account.situacao) && Number(account.saldoPendente) > 0;
+}
+
+export function getOutstandingReceivables(accounts) {
+  return accounts.filter(isOutstandingReceivable);
 }
 
 export function calculateOutstandingBalance(accounts) {
@@ -30,7 +34,7 @@ function compareDueDates(first, second) {
 export function groupReceivablesByCustomer(accounts, search = "") {
   const groupsByCustomer = new Map();
 
-  for (const account of accounts) {
+  for (const account of getOutstandingReceivables(accounts)) {
     const key = customerKey(account);
     const group = groupsByCustomer.get(key) || {
       key,
@@ -40,10 +44,8 @@ export function groupReceivablesByCustomer(accounts, search = "") {
       saldoTotal: 0,
       contas: []
     };
-    if (isOutstandingReceivable(account)) {
-      group.quantidadeDividas += 1;
-      group.saldoTotal += Number(account.saldoPendente) || 0;
-    }
+    group.quantidadeDividas += 1;
+    group.saldoTotal += Number(account.saldoPendente);
     group.contas.push(account);
     groupsByCustomer.set(key, group);
   }

@@ -1,5 +1,5 @@
 import { PAYMENT_METHOD_LABELS } from "../data/domain.js";
-import { formatCurrency, formatDateTime } from "../utils/formatters.js";
+import { formatCivilDate, formatCurrency, formatDateTime } from "../utils/formatters.js";
 import { buildThermalPdf, downloadPdf } from "./textPdf.js";
 import { companyHeader, documentFooter } from "./thermalDocument.js";
 
@@ -10,14 +10,6 @@ const ACCOUNT_STATUS_LABELS = {
   VENCIDA: "Vencida",
   CANCELADA: "Cancelada"
 };
-
-const DATE = new Intl.DateTimeFormat("pt-BR");
-
-function formatDate(value) {
-  if (!value) return "Não informada";
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? "Não informada" : DATE.format(date);
-}
 
 function paymentElements(payment) {
   const status = payment.estornado ? " · ESTORNADO" : "";
@@ -70,7 +62,7 @@ export function buildReceivableStatementPdf(account) {
   const saleNumber = account.numeroVenda || "Não informada";
   const payments = account.recebimentos || [];
   const saleDateElements = account.dataVenda
-    ? [{ type: "pair", left: "Data da venda", right: formatDate(account.dataVenda.slice(0, 10)), fontSize: 7.3, boldLeft: true }]
+    ? [{ type: "pair", left: "Data da venda", right: formatCivilDate(account.dataVenda.slice(0, 10), "Não informada"), fontSize: 7.3, boldLeft: true }]
     : [];
 
   const elements = [
@@ -86,7 +78,7 @@ export function buildReceivableStatementPdf(account) {
     { type: "pair", left: "Conta a receber", right: String(accountNumber), fontSize: 7.3, boldLeft: true, boldRight: true },
     { type: "pair", left: "Venda", right: String(saleNumber), fontSize: 7.3, boldLeft: true, boldRight: true },
     ...saleDateElements,
-    { type: "pair", left: "Vencimento", right: formatDate(account.vencimento), fontSize: 7.3, boldLeft: true },
+    { type: "pair", left: "Vencimento", right: formatCivilDate(account.vencimento, "Não informada"), fontSize: 7.3, boldLeft: true },
     {
       type: "pair",
       left: "Situação",

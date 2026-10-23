@@ -74,7 +74,7 @@ test("ordena dívidas do cliente pelos vencimentos mais próximos", () => {
   assert.deepEqual(groups[0].contas.map((item) => item.id), [1, 2, 3]);
 });
 
-test("pagamento parcial ou quitação altera apenas a conta correspondente", () => {
+test("pagamento parcial reduz o total e quitação remove somente a conta correspondente", () => {
   const first = account({ id: 1, saldoPendente: 100 });
   const second = account({ id: 2, saldoPendente: 200 });
   const partial = groupReceivablesByCustomer([{ ...first, saldoPendente: 40 }, second])[0];
@@ -82,18 +82,35 @@ test("pagamento parcial ou quitação altera apenas a conta correspondente", () 
 
   assert.deepEqual(partial.contas.map((item) => item.saldoPendente), [40, 200]);
   assert.equal(partial.saldoTotal, 240);
-  assert.deepEqual(paid.contas.map((item) => item.saldoPendente), [0, 200]);
+  assert.deepEqual(paid.contas.map((item) => item.saldoPendente), [200]);
   assert.equal(paid.saldoTotal, 200);
 });
 
-test("não inclui contas quitadas ou canceladas no saldo e na quantidade de dívidas", () => {
+test("cliente com todas as dívidas quitadas não aparece", () => {
+  const groups = groupReceivablesByCustomer([
+    account({ id: 1, situacao: "QUITADA", saldoPendente: 0 }),
+    account({ id: 2, situacao: "QUITADA", saldoPendente: 0 })
+  ]);
+
+  assert.deepEqual(groups, []);
+});
+
+test("exibe somente contas pendentes quando o cliente também possui contas encerradas", () => {
   const groups = groupReceivablesByCustomer([
     account({ id: 1, situacao: "ABERTA", saldoPendente: 100 }),
     account({ id: 2, situacao: "QUITADA", saldoPendente: 0 }),
     account({ id: 3, situacao: "CANCELADA", saldoPendente: 300 })
   ]);
 
-  assert.equal(groups[0].contas.length, 3);
+  assert.deepEqual(groups[0].contas.map((item) => item.id), [1]);
   assert.equal(groups[0].quantidadeDividas, 1);
   assert.equal(groups[0].saldoTotal, 100);
+});
+
+test("estorno que reabre a conta faz o cliente reaparecer", () => {
+  const paid = account({ situacao: "QUITADA", saldoPendente: 0 });
+  const reopened = { ...paid, situacao: "PARCIAL", saldoPendente: 75 };
+
+  assert.equal(groupReceivablesByCustomer([paid]).length, 0);
+  assert.equal(groupReceivablesByCustomer([reopened])[0].saldoTotal, 75);
 });
