@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "../components/EmptyState.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import CameraBarcodeScanner from "../components/CameraBarcodeScanner.jsx";
 import Panel from "../components/Panel.jsx";
 import { STOCK_MOVEMENT_TYPES } from "../data/domain.js";
 import { filterStockMovements, getStockStatus, searchOperationalProducts } from "../services/inventory.js";
@@ -9,6 +10,7 @@ import { addStock, adjustStock, listStockMovements, removeStock } from "../servi
 import { getOperationAttempt } from "../services/operationAttempt.js";
 import { setAppUpdateBlocked } from "../services/updateSafety.js";
 import { saveThenRefresh } from "../services/mutationFlow.js";
+import { findProductByCode } from "../services/sales.js";
 import { formatDateTime } from "../utils/formatters.js";
 
 const initialForm = { produtoId: "", operacao: "ENTRADA", valor: "1", motivo: "" };
@@ -31,6 +33,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const movementAttemptRef = useRef(null);
   const products = apiProducts;
   const activeProducts = useMemo(() => searchOperationalProducts(products, productSearch), [products, productSearch]);
@@ -85,6 +88,17 @@ export default function InventoryPage() {
   function changeOperation(operation) {
     setForm((current) => ({ ...current, operacao: operation, valor: operation === "AJUSTE" ? "0" : "1", motivo: "" }));
     setFeedback(null);
+  }
+
+  async function handleCameraBarcode(barcode) {
+    setProductSearch(barcode);
+    const result = findProductByCode(products, barcode);
+    if (!result.ok) {
+      setFeedback({ type: "warning", message: result.message });
+      return;
+    }
+    setForm((current) => ({ ...current, produtoId: String(result.product.id) }));
+    setFeedback({ type: "success", message: `${result.product.nome} localizado para movimentação.` });
   }
 
   async function processMovement(request) {
@@ -143,7 +157,7 @@ export default function InventoryPage() {
       <section className="inventory-movement-section">
       <Panel title="Movimentar estoque" description="Registre entrada, ajuste por contagem ou saída sem venda.">
         <form className="form-grid-pro" onSubmit={submit}>
-          <label className="field-wide">Localizar produto<input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nome, referência, código, marca, categoria ou aplicação" /></label>
+          <label className="field-wide">Localizar produto<div className="field-with-action"><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nome, referência, código, marca, categoria ou aplicação" /><button type="button" className="secondary-button" disabled={loading} onClick={() => setCameraOpen(true)}>Ler com câmera</button></div></label>
           <label className="field-wide">Produto<select value={form.produtoId} onChange={(event) => setForm((current) => ({ ...current, produtoId: event.target.value }))} required><option value="">Selecione</option>{activeProducts.map((product) => <option key={product.id} value={product.id}>{product.nome} · atual: {product.quantidadeEstoque}</option>)}</select></label>
           {selected && <div className="stock-current-balance field-wide"><span>Estoque atual</span><strong>{selected.quantidadeEstoque} unidade(s)</strong></div>}
           <label>Operação<select value={form.operacao} onChange={(event) => changeOperation(event.target.value)}><option value="ENTRADA">Entrada</option><option value="AJUSTE">Ajustar saldo contado</option><option value="SAIDA">Saída manual</option></select></label>
@@ -189,6 +203,11 @@ export default function InventoryPage() {
       processing={loading}
       onCancel={() => setConfirmation(null)}
       onConfirm={async () => { await processMovement(confirmation); setConfirmation(null); }}
+    />
+    <CameraBarcodeScanner
+      open={cameraOpen}
+      onClose={() => setCameraOpen(false)}
+      onDetected={handleCameraBarcode}
     />
   </div>;
 }

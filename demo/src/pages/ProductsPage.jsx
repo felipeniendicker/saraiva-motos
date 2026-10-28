@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import BarcodeInput from "../components/BarcodeInput.jsx";
+import CameraBarcodeScanner from "../components/CameraBarcodeScanner.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
@@ -59,6 +60,7 @@ export default function ProductsPage() {
   const [feedback, setFeedback] = useState(null);
   const [formExpanded, setFormExpanded] = useState(false);
   const [formContext, setFormContext] = useState("manual");
+  const [cameraTarget, setCameraTarget] = useState(null);
   const barcodeInputRef = useRef(null);
   const [searchParams] = useSearchParams();
   const sourceProducts = apiProducts;
@@ -137,7 +139,7 @@ export default function ProductsPage() {
     scrollToForm();
   }
 
-  async function performBarcodeLookup(value, refresh = false) {
+  async function performBarcodeLookup(value, refresh = false, { preserveForm = false } = {}) {
     const barcode = normalizeBarcode(value);
     if (!barcode || lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING) return;
 
@@ -150,7 +152,7 @@ export default function ProductsPage() {
     setLookupResult(result);
     setSuggestionSelection(createSuggestionSelection(result));
 
-    if ([PRODUCT_LOOKUP_STATUS.NOT_FOUND, PRODUCT_LOOKUP_STATUS.ERROR].includes(result.status)) {
+    if (!preserveForm && [PRODUCT_LOOKUP_STATUS.NOT_FOUND, PRODUCT_LOOKUP_STATUS.ERROR].includes(result.status)) {
       setForm({ ...initialForm, codigoBarras: result.barcode });
     }
     focusBarcodeInput();
@@ -159,6 +161,14 @@ export default function ProductsPage() {
   function submitBarcodeLookup(event) {
     event.preventDefault();
     performBarcodeLookup(barcodeQuery);
+  }
+
+  async function handleCameraBarcode(barcode) {
+    setBarcodeQuery(barcode);
+    if (cameraTarget === "form") {
+      setForm((current) => ({ ...current, codigoBarras: barcode }));
+    }
+    await performBarcodeLookup(barcode, false, { preserveForm: cameraTarget === "form" });
   }
 
   function useExternalData() {
@@ -263,6 +273,7 @@ export default function ProductsPage() {
           <button className="primary-button" disabled={lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING}>
             {lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING ? "Consultando..." : "Consultar"}
           </button>
+          <button type="button" className="secondary-button" disabled={lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING} onClick={() => setCameraTarget("lookup")}>Ler com câmera</button>
         </form>
 
         {lookupResult.barcode && (
@@ -368,7 +379,10 @@ export default function ProductsPage() {
           </label>
           <label>
             Código de barras
-            <input value={form.codigoBarras} onChange={(event) => update("codigoBarras", event.target.value)} placeholder="Opcional" />
+            <div className="field-with-action">
+              <input value={form.codigoBarras} onChange={(event) => update("codigoBarras", event.target.value)} placeholder="Opcional" />
+              <button type="button" className="secondary-button" disabled={lookupResult.status === PRODUCT_LOOKUP_STATUS.LOADING} onClick={() => setCameraTarget("form")}>Ler com câmera</button>
+            </div>
           </label>
           <label>
             Marca
@@ -499,6 +513,11 @@ export default function ProductsPage() {
         processing={apiSaving}
         onCancel={() => setConfirmation(null)}
         onConfirm={async () => { await toggleActive(confirmation); setConfirmation(null); }}
+      />
+      <CameraBarcodeScanner
+        open={Boolean(cameraTarget)}
+        onClose={() => setCameraTarget(null)}
+        onDetected={handleCameraBarcode}
       />
     </div>
   );

@@ -132,6 +132,59 @@
   .receivable-payment { align-items: stretch; flex-direction: column; }
 }
 .remote-reader-connect { margin-top: 10px; }
+.camera-scanner-overlay {
+  align-items: center;
+  background: rgba(10, 12, 10, 0.82);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 1200;
+}
+.camera-scanner-dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-overlay);
+  display: grid;
+  gap: 12px;
+  max-height: calc(100dvh - 24px);
+  max-width: 560px;
+  overflow: auto;
+  padding: 16px;
+  width: 100%;
+}
+.camera-scanner-dialog header { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+.camera-scanner-dialog h2, .camera-scanner-dialog p { margin: 0; }
+.camera-scanner-dialog header p { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+.camera-scanner-preview { aspect-ratio: 4 / 3; background: #111; border-radius: 14px; overflow: hidden; position: relative; }
+.camera-scanner-preview video { height: 100%; object-fit: cover; width: 100%; }
+.camera-scanner-frame {
+  border: 3px solid var(--color-primary);
+  border-radius: 12px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35);
+  height: 38%;
+  left: 8%;
+  position: absolute;
+  top: 31%;
+  width: 84%;
+}
+.camera-scanner-recognized {
+  background: var(--color-success);
+  bottom: 14px;
+  color: #fff;
+  font-weight: 800;
+  left: 50%;
+  padding: 8px 14px;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.camera-scanner-message { color: var(--muted); font-size: 0.9rem; }
+.camera-scanner-message.error { color: var(--color-danger); font-weight: 700; }
+.camera-scanner-engine { color: var(--muted); }
+.camera-scanner-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.field-with-action { align-items: end; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) auto; }
 .remote-reader-card { display: flex; gap: 16px; align-items: center; margin-top: 12px; padding: 12px; border: 1px solid var(--border, #ddd); border-radius: 12px; }
 .remote-reader-card img { width: 150px; height: 150px; }
 .remote-reader-card > div { display: grid; gap: 8px; }
@@ -140,6 +193,12 @@
 .remote-scanner-page video { width: 100%; min-height: 220px; background: #111; border-radius: 12px; }
 .remote-scanner-page form, .remote-scanner-page label { display: grid; gap: 10px; }
 @media (max-width: 600px) { .remote-reader-card { align-items: stretch; flex-direction: column; } .remote-reader-card img { align-self: center; } }
+@media (max-width: 600px) {
+  .camera-scanner-overlay { align-items: stretch; padding: 0; }
+  .camera-scanner-dialog { border-radius: 0; max-height: 100dvh; max-width: none; }
+  .camera-scanner-actions { display: grid; grid-template-columns: 1fr; }
+  .field-with-action { grid-template-columns: minmax(0, 1fr); }
+}
 
 * {
   box-sizing: border-box;
@@ -1075,7 +1134,7 @@ textarea:disabled {
 .barcode-lookup-form {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .barcode-lookup-form input {
@@ -1467,7 +1526,7 @@ textarea:disabled {
 .scan-input-row {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .scan-input {

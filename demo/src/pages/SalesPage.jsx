@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BarcodeInput from "../components/BarcodeInput.jsx";
+import CameraBarcodeScanner from "../components/CameraBarcodeScanner.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import SalesHistory from "../components/SalesHistory.jsx";
@@ -52,6 +53,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   const [receiptSale, setReceiptSale] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const codeInputRef = useRef(null);
   const summaryRef = useRef(null);
@@ -178,6 +180,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
   function submitCode(event) {
     event.preventDefault();
     performCodeLookup(code);
+  }
+
+  async function handleCameraBarcode(barcode) {
+    setCode(barcode);
+    await performCodeLookup(barcode);
   }
 
   function changeCustomer(nextCustomerId) {
@@ -340,6 +347,7 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
                 autoComplete="off"
               />
               <button className="primary-button" disabled={lookupLoading}>{lookupLoading ? "Buscando..." : "Adicionar"}</button>
+              <button type="button" className="secondary-button" disabled={lookupLoading} onClick={() => setCameraOpen(true)}>Ler com câmera</button>
             </div>
             <RemoteReaderConnect onCode={performCodeLookup} />
           </form>
@@ -533,6 +541,11 @@ function SalesCheckout({ db, onFinalizeSale, onLookupProductByCode }) {
       )}
 
       {receiptSale && <SaleReceiptPreview sale={receiptSale} customers={db.customers} onClose={() => setReceiptSale(null)} />}
+      <CameraBarcodeScanner
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onDetected={handleCameraBarcode}
+      />
     </div>
   );
 }
