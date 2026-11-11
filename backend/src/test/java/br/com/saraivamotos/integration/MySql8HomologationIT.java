@@ -20,21 +20,29 @@ import br.com.saraivamotos.domain.FormaPagamento;
 import br.com.saraivamotos.domain.Produto;
 import br.com.saraivamotos.domain.StatusVenda;
 import br.com.saraivamotos.domain.StatusOrcamento;
+import br.com.saraivamotos.domain.StatusPedido;
 import br.com.saraivamotos.domain.TipoItem;
 import br.com.saraivamotos.domain.TipoCliente;
 import br.com.saraivamotos.domain.Usuario;
 import br.com.saraivamotos.dto.AberturaCaixaRequest;
+import br.com.saraivamotos.dto.AlteracaoStatusPedidoRequest;
+import br.com.saraivamotos.dto.CancelamentoPedidoRequest;
 import br.com.saraivamotos.dto.FechamentoCaixaRequest;
 import br.com.saraivamotos.dto.CaixaResponse;
 import br.com.saraivamotos.dto.CancelamentoVendaRequest;
 import br.com.saraivamotos.dto.EntradaEstoqueRequest;
+import br.com.saraivamotos.dto.EmpresaConfiguracaoRequest;
+import br.com.saraivamotos.dto.EstornoRecebimentoRequest;
+import br.com.saraivamotos.dto.FinalizacaoPedidoRequest;
 import br.com.saraivamotos.dto.ItemVendaRequest;
 import br.com.saraivamotos.dto.ItemOrcamentoRequest;
 import br.com.saraivamotos.dto.MovimentacaoEstoqueResponse;
 import br.com.saraivamotos.dto.OrcamentoRequest;
 import br.com.saraivamotos.dto.OrcamentoResponse;
 import br.com.saraivamotos.dto.ConversaoOrcamentoRequest;
+import br.com.saraivamotos.dto.ConversaoPedidoRequest;
 import br.com.saraivamotos.dto.RecebimentoRequest;
+import br.com.saraivamotos.dto.RecebimentoResponse;
 import br.com.saraivamotos.dto.VendaRequest;
 import br.com.saraivamotos.dto.VendaResponse;
 import br.com.saraivamotos.exception.PrecoProdutoDesatualizadoException;
@@ -44,14 +52,18 @@ import br.com.saraivamotos.repository.UsuarioRepository;
 import br.com.saraivamotos.security.AuthenticatedUser;
 import br.com.saraivamotos.service.CaixaService;
 import br.com.saraivamotos.service.ContaReceberService;
+import br.com.saraivamotos.service.EmpresaConfiguracaoService;
 import br.com.saraivamotos.service.OrcamentoService;
+import br.com.saraivamotos.service.PedidoService;
 import br.com.saraivamotos.service.VendaCancelamentoService;
 import br.com.saraivamotos.service.OperacaoIdempotenteService;
 import br.com.saraivamotos.service.VendaService;
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,32 +71,54 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.mysql.MySQLContainer;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = {
         "app.initial-user.email=", "app.initial-user.password=",
         "app.upcitemdb.enabled=false", "app.tavily.enabled=false",
         "spring.jpa.hibernate.ddl-auto=validate"
 })
-@Testcontainers(disabledWithoutDocker = true)
+@EnabledIf("ambienteMySqlDisponivel")
 @Execution(ExecutionMode.SAME_THREAD)
 class MySql8HomologationIT {
 
-    @Container
+    private static final String URL_EXTERNA = System.getProperty("homologation.mysql.url", "");
+    private static final String USUARIO_EXTERNO = System.getProperty("homologation.mysql.username", "");
+    private static final String SENHA_EXTERNA = System.getProperty("homologation.mysql.password", "");
+
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0.36")
             .withDatabaseName("saraiva_homolog_test")
             .withUsername("saraiva_test")
             .withPassword("saraiva_test_password");
 
+    static boolean ambienteMySqlDisponivel() {
+        return usaBancoExterno() || DockerClientFactory.instance().isDockerAvailable();
+    }
+
+    private static boolean usaBancoExterno() {
+        return !URL_EXTERNA.isBlank();
+    }
+
     @DynamicPropertySource
     static void configurarBanco(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
-        registry.add("spring.datasource.username", MYSQL::getUsername);
-        registry.add("spring.datasource.password", MYSQL::getPassword);
-        registry.add("spring.datasource.driver-class-name", MYSQL::getDriverClassName);
+        if (usaBancoExterno()) {
+            registry.add("spring.datasource.url", () -> URL_EXTERNA);
+            registry.add("spring.datasource.username", () -> USUARIO_EXTERNO);
+            registry.add("spring.datasource.password", () -> SENHA_EXTERNA);
+        } else {
+            MYSQL.start();
+            registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
+            registry.add("spring.datasource.username", MYSQL::getUsername);
+            registry.add("spring.datasource.password", MYSQL::getPassword);
+        }
+        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
         registry.add("app.jwt.secret", () -> "homologation-test-secret-with-at-least-thirty-two-characters");
+    }
+
+    @AfterAll
+    static void encerrarContainer() {
+        if (!usaBancoExterno() && MYSQL.isRunning()) MYSQL.stop();
     }
 
     @Autowired private OperacaoIdempotenteService operacoes;
@@ -97,7 +131,9 @@ class MySql8HomologationIT {
     @Autowired private VendaCancelamentoService cancelamentos;
     @Autowired private UsuarioRepository usuarios;
     @Autowired private OrcamentoService orcamentos;
+    @Autowired private PedidoService pedidos;
     @Autowired private ContaReceberService contasReceber;
+    @Autowired private EmpresaConfiguracaoService empresaConfiguracao;
 
     private ExecutorService executor;
 
@@ -105,11 +141,18 @@ class MySql8HomologationIT {
     void limparBancoDescartavel() {
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 0");
         for (String tabela : List.of("leitor_leitura", "leitor_sessao", "caixa_movimentacao",
-                "recebimento", "conta_receber", "item_orcamento", "orcamento",
+                "recebimento", "conta_receber", "pedido_historico_status", "item_pedido", "pedido",
+                "item_orcamento", "orcamento",
                 "operacao_idempotente", "movimentacao_estoque", "item_venda",
                 "venda", "caixa", "moto", "cliente", "produto", "usuario")) {
             jdbc.execute("TRUNCATE TABLE " + tabela);
         }
+        jdbc.update("""
+                UPDATE empresa_configuracao
+                   SET nome_fantasia = 'SARAIVA MOTOS', razao_social = 'SARAIVA MOTO PEÇAS',
+                       cnpj = NULL, telefone = NULL, endereco = NULL, email = NULL
+                 WHERE id = 1
+                """);
         jdbc.execute("SET FOREIGN_KEY_CHECKS = 1");
         executor = Executors.newFixedThreadPool(2);
     }
@@ -120,12 +163,12 @@ class MySql8HomologationIT {
     }
 
     @Test
-    void aplicaEValidaAsMigrationsV1AV9NoMySql8() {
+    void aplicaEValidaAsMigrationsV1AV12NoMySql8() {
         assertThat(jdbc.queryForObject("SELECT VERSION()", String.class)).startsWith("8.0.");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 ORDER BY installed_rank",
-                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+                String.class)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'venda'
@@ -152,6 +195,87 @@ class MySql8HomologationIT {
                 WHERE table_schema = DATABASE() AND table_name = 'item_venda'
                   AND column_name = 'preco_alterado_manualmente'
                 """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE() AND table_name = 'empresa_configuracao'
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE() AND table_name IN
+                  ('pedido', 'item_pedido', 'pedido_historico_status')
+                """, Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'orcamento'
+                  AND column_name IN ('forma_pagamento_prevista', 'condicao_pagamento_prevista',
+                                      'vencimento_previsto', 'entrada_prevista',
+                                      'forma_pagamento_entrada_prevista')
+                """, Integer.class)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'pedido'
+                  AND column_name IN ('forma_pagamento_prevista', 'condicao_pagamento_prevista',
+                                      'vencimento_previsto', 'entrada_prevista',
+                                      'forma_pagamento_entrada_prevista')
+                """, Integer.class)).isEqualTo(5);
+        assertThat(jdbc.queryForObject(
+                "SELECT nome_fantasia FROM empresa_configuracao WHERE id = 1", String.class))
+                .isEqualTo("SARAIVA MOTOS");
+        assertThat(jdbc.queryForObject(
+                "SELECT razao_social FROM empresa_configuracao WHERE id = 1", String.class))
+                .isEqualTo("SARAIVA MOTO PEÇAS");
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.table_constraints
+                WHERE constraint_schema = DATABASE() AND table_name = 'pedido'
+                  AND constraint_type = 'FOREIGN KEY'
+                  AND constraint_name IN ('fk_pedido_cliente', 'fk_pedido_orcamento',
+                                          'fk_pedido_venda', 'fk_pedido_operador')
+                """, Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.table_constraints
+                WHERE constraint_schema = DATABASE() AND table_name = 'pedido'
+                  AND constraint_type = 'UNIQUE'
+                  AND constraint_name IN ('uk_pedido_numero', 'uk_pedido_orcamento', 'uk_pedido_venda')
+                """, Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.table_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND constraint_name IN ('chk_pedido_status', 'chk_pedido_valores',
+                                          'chk_orcamento_condicao_pagamento_prevista',
+                                          'chk_pedido_condicao_pagamento_prevista')
+                  AND constraint_type = 'CHECK'
+                """, Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'pedido'
+                  AND column_name IN ('subtotal', 'total') AND data_type = 'decimal'
+                  AND numeric_precision = 15 AND numeric_scale = 2
+                """, Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name IN ('pedido', 'pedido_historico_status')
+                  AND column_name IN ('data_criacao', 'data_atualizacao', 'data_hora')
+                  AND data_type = 'datetime' AND datetime_precision = 6
+                """, Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name IN ('orcamento', 'pedido')
+                  AND column_name = 'condicao_pagamento_prevista'
+                  AND column_default = 'IMEDIATO'
+                """, Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void atualizacaoDosDadosDaEmpresaPermanecePersistidaNoMySql() {
+        empresaConfiguracao.atualizar(new EmpresaConfiguracaoRequest(
+                "Saraiva Motos Centro", "Saraiva Moto Peças Ltda",
+                "11.222.333/0001-81", "(11) 99999-9999",
+                "Rua das Motos, 100", "contato@saraiva.test"));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT nome_fantasia FROM empresa_configuracao WHERE id = 1", String.class))
+                .isEqualTo("Saraiva Motos Centro");
+        assertThat(empresaConfiguracao.buscar().email()).isEqualTo("contato@saraiva.test");
     }
 
     @Test
@@ -284,7 +408,7 @@ class MySql8HomologationIT {
         CaixaResponse caixa = caixas.abrir(new AberturaCaixaRequest(new BigDecimal("100.00")), operador);
         Produto produto = produto("CAIXA-1", "Produto caixa", 3, "50.00", "45.00");
         VendaResponse venda = operacoes.venda(UUID.randomUUID().toString(),
-                venda(produto, 1, "50.00", "50.00", false, null), operador);
+                venda(produto, 1, "50.00", "50.00", false, null, FormaPagamento.DINHEIRO), operador);
 
         assertThat(jdbc.queryForObject("SELECT caixa_id FROM venda WHERE id = ?", Long.class, venda.id()))
                 .isEqualTo(caixa.id());
@@ -331,6 +455,132 @@ class MySql8HomologationIT {
     }
 
     @Test
+    void orcamentoPedidoVendaSoMovimentaEstoqueNaFinalizacaoEFinalizaUmaVez() {
+        AuthenticatedUser operador = operador();
+        caixas.abrir(new AberturaCaixaRequest(new BigDecimal("50.00")), operador);
+        Produto produto = produto("PED-FLUXO-1", "Produto de pedido", 5, "100.00", "90.00");
+        Cliente cliente = cliente("Cliente do pedido", TipoCliente.CLIENTE_COMUM);
+        OrcamentoResponse orcamento = orcamentos.criar(new OrcamentoRequest(cliente.getId(), List.of(
+                new ItemOrcamentoRequest(TipoItem.PRODUTO, produto.getId(), null, 2,
+                        new BigDecimal("100.00"), new BigDecimal("100.00"), false),
+                new ItemOrcamentoRequest(TipoItem.SERVICO, null, "Instalacao", 1,
+                        new BigDecimal("50.00"), new BigDecimal("50.00"), true)),
+                BigDecimal.ZERO, LocalDate.now().plusDays(7), StatusOrcamento.EMITIDO,
+                "Fluxo pedido", null), operador);
+
+        var pedido = pedidos.converterOrcamento(orcamento.id(),
+                new ConversaoPedidoRequest(LocalDate.now().plusDays(3), "Retirada programada"), operador);
+        var pedidoRepetido = pedidos.converterOrcamento(orcamento.id(),
+                new ConversaoPedidoRequest(LocalDate.now().plusDays(3), "Retirada programada"), operador);
+
+        assertThat(pedidoRepetido.id()).isEqualTo(pedido.id());
+        assertThat(estoque(produto)).isEqualTo(5);
+        assertThat(contar("pedido")).isEqualTo(1);
+        assertThat(contar("venda")).isZero();
+        assertThat(contar("conta_receber")).isZero();
+        assertThat(contarMovimentos("SAIDA_VENDA")).isZero();
+
+        pedidos.alterarStatus(pedido.id(),
+                new AlteracaoStatusPedidoRequest(StatusPedido.CONFIRMADO, "Confirmado"), operador);
+        pedidos.alterarStatus(pedido.id(),
+                new AlteracaoStatusPedidoRequest(StatusPedido.PRONTO, "Pronto"), operador);
+        String chave = UUID.randomUUID().toString();
+        FinalizacaoPedidoRequest finalizacao = new FinalizacaoPedidoRequest(FormaPagamento.PIX,
+                CondicaoPagamento.IMEDIATO, null, null, null, "Venda do pedido");
+        VendaResponse venda = pedidos.finalizar(pedido.id(), chave, finalizacao, operador);
+        VendaResponse repetida = pedidos.finalizar(pedido.id(), chave, finalizacao, operador);
+
+        assertThat(repetida.id()).isEqualTo(venda.id());
+        assertThat(estoque(produto)).isEqualTo(3);
+        assertThat(contar("venda")).isEqualTo(1);
+        assertThat(contarMovimentos("SAIDA_VENDA")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT venda_id FROM pedido WHERE id = ?", Long.class, pedido.id()))
+                .isEqualTo(venda.id());
+        assertThat(jdbc.queryForObject("SELECT status FROM pedido WHERE id = ?", String.class, pedido.id()))
+                .isEqualTo(StatusPedido.FINALIZADO.name());
+    }
+
+    @Test
+    void cancelamentoDePedidoNaoCriaVendaEstoqueOuFinanceiro() {
+        AuthenticatedUser operador = operador();
+        Produto produto = produto("PED-CANCEL-1", "Produto de pedido cancelado", 4, "80.00", "70.00");
+        Cliente cliente = cliente("Cliente cancelamento pedido", TipoCliente.CLIENTE_COMUM);
+        OrcamentoResponse orcamento = orcamentos.criar(new OrcamentoRequest(cliente.getId(), List.of(
+                new ItemOrcamentoRequest(TipoItem.PRODUTO, produto.getId(), null, 1,
+                        new BigDecimal("80.00"), new BigDecimal("80.00"), false)),
+                BigDecimal.ZERO, LocalDate.now().plusDays(7), StatusOrcamento.EMITIDO,
+                "Pedido a cancelar", null), operador);
+        var pedido = pedidos.converterOrcamento(orcamento.id(), new ConversaoPedidoRequest(null, null), operador);
+
+        var cancelado = pedidos.cancelar(pedido.id(),
+                new CancelamentoPedidoRequest("Cliente desistiu"), operador);
+        var canceladoRepetido = pedidos.cancelar(pedido.id(),
+                new CancelamentoPedidoRequest("Reenvio"), operador);
+
+        assertThat(cancelado.status()).isEqualTo(StatusPedido.CANCELADO);
+        assertThat(canceladoRepetido.status()).isEqualTo(StatusPedido.CANCELADO);
+        assertThat(estoque(produto)).isEqualTo(4);
+        assertThat(contar("venda")).isZero();
+        assertThat(contar("conta_receber")).isZero();
+        assertThat(contarMovimentos("SAIDA_VENDA")).isZero();
+    }
+
+    @Test
+    void orcamentoAPrazoSoCriaUmaVendaUmaContaEUmaEntradaNaConversao() {
+        AuthenticatedUser operador = operador();
+        caixas.abrir(new AberturaCaixaRequest(new BigDecimal("50.00")), operador);
+        Produto produto = produto("ORC-PRAZO-1", "Produto orcado a prazo", 5, "600.00", "550.00");
+        Cliente cliente = cliente("Cliente do orcamento a prazo", TipoCliente.CLIENTE_COMUM);
+        LocalDate vencimento = LocalDate.now().plusDays(30);
+        OrcamentoRequest request = new OrcamentoRequest(cliente.getId(), List.of(
+                new ItemOrcamentoRequest(TipoItem.PRODUTO, produto.getId(), null, 1,
+                        new BigDecimal("600.00"), new BigDecimal("600.00"), false)),
+                BigDecimal.ZERO, LocalDate.now().plusDays(7), StatusOrcamento.EMITIDO,
+                "Proposta a prazo", null, null, CondicaoPagamento.A_PRAZO, vencimento,
+                new BigDecimal("100.00"), FormaPagamento.PIX);
+
+        OrcamentoResponse criado = orcamentos.criar(request, operador);
+        assertThat(estoque(produto)).isEqualTo(5);
+        assertThat(contar("venda")).isZero();
+        assertThat(contar("conta_receber")).isZero();
+        assertThat(contar("recebimento")).isZero();
+
+        String chave = UUID.randomUUID().toString();
+        ConversaoOrcamentoRequest conversao = new ConversaoOrcamentoRequest(FormaPagamento.OUTRO,
+                CondicaoPagamento.A_PRAZO, vencimento, new BigDecimal("100.00"), FormaPagamento.PIX, null);
+        VendaResponse primeira = orcamentos.converter(criado.id(), chave, conversao, operador);
+        VendaResponse repetida = orcamentos.converter(criado.id(), chave, conversao, operador);
+
+        assertThat(repetida.id()).isEqualTo(primeira.id());
+        assertThat(estoque(produto)).isEqualTo(4);
+        assertThat(contar("venda")).isEqualTo(1);
+        assertThat(contar("conta_receber")).isEqualTo(1);
+        assertThat(contar("recebimento")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT saldo_pendente FROM conta_receber", BigDecimal.class))
+                .isEqualByComparingTo("500.00");
+
+        Long contaId = jdbc.queryForObject("SELECT id FROM conta_receber", Long.class);
+        contasReceber.registrar(contaId, UUID.randomUUID().toString(),
+                new RecebimentoRequest(new BigDecimal("300.00"), FormaPagamento.DINHEIRO), operador);
+        assertThat(jdbc.queryForObject("SELECT saldo_pendente FROM conta_receber WHERE id = ?",
+                BigDecimal.class, contaId)).isEqualByComparingTo("200.00");
+        var quitacao = contasReceber.registrar(contaId, UUID.randomUUID().toString(),
+                new RecebimentoRequest(new BigDecimal("200.00"), FormaPagamento.PIX), operador);
+        assertThat(jdbc.queryForObject("SELECT saldo_pendente FROM conta_receber WHERE id = ?",
+                BigDecimal.class, contaId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM conta_receber WHERE id = ?",
+                String.class, contaId)).isEqualTo("QUITADA");
+
+        contasReceber.estornar(quitacao.id(), new EstornoRecebimentoRequest("Estorno homologacao"), operador);
+        assertThat(jdbc.queryForObject("SELECT saldo_pendente FROM conta_receber WHERE id = ?",
+                BigDecimal.class, contaId)).isEqualByComparingTo("200.00");
+        assertThat(jdbc.queryForObject("SELECT status FROM conta_receber WHERE id = ?",
+                String.class, contaId)).isEqualTo("PARCIAL");
+        assertThat(contasReceber.listar().stream().filter(conta -> conta.id().equals(contaId))
+                .findFirst().orElseThrow().recebimentos()).hasSize(3);
+    }
+
+    @Test
     void vendaAPrazoRecebeParcialmenteSemDuplicarPagamento() {
         AuthenticatedUser operador = operador();
         CaixaResponse caixa = caixas.abrir(new AberturaCaixaRequest(new BigDecimal("100.00")), operador);
@@ -357,6 +607,40 @@ class MySql8HomologationIT {
                 Integer.class, primeiro.id())).isEqualTo(1);
         assertThat(caixas.atual().id()).isEqualTo(caixa.id());
         assertThat(caixas.atual().saldoEsperado()).isEqualByComparingTo("130.00");
+    }
+
+    @Test
+    void recebimentosSimultaneosComMesmaChaveConvergemParaUmaBaixa() throws Exception {
+        AuthenticatedUser operador = operador();
+        caixas.abrir(new AberturaCaixaRequest(new BigDecimal("100.00")), operador);
+        Produto produto = produto("REC-CONCORRENTE-1", "Produto recebimento concorrente", 3, "100.00", "90.00");
+        Cliente cliente = cliente("Cliente recebimento concorrente", TipoCliente.CLIENTE_COMUM);
+        VendaRequest request = new VendaRequest(cliente.getId(), List.of(new ItemVendaRequest(
+                produto.getId(), 1, new BigDecimal("100.00"), new BigDecimal("100.00"), false)),
+                BigDecimal.ZERO, null, FormaPagamento.OUTRO, "Recebimento concorrente",
+                CondicaoPagamento.A_PRAZO, LocalDate.now().plusDays(30), BigDecimal.ZERO, null);
+        operacoes.venda(UUID.randomUUID().toString(), request, operador);
+        Long contaId = jdbc.queryForObject("SELECT id FROM conta_receber", Long.class);
+        String chave = UUID.randomUUID().toString();
+        RecebimentoRequest pagamento = new RecebimentoRequest(new BigDecimal("30.00"), FormaPagamento.DINHEIRO);
+        CountDownLatch partida = new CountDownLatch(1);
+        Future<RecebimentoResponse> primeira = executor.submit(() -> {
+            partida.await();
+            return contasReceber.registrar(contaId, chave, pagamento, operador);
+        });
+        Future<RecebimentoResponse> segunda = executor.submit(() -> {
+            partida.await();
+            return contasReceber.registrar(contaId, chave, pagamento, operador);
+        });
+
+        partida.countDown();
+
+        assertThat(primeira.get().id()).isEqualTo(segunda.get().id());
+        assertThat(contar("recebimento")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT saldo_pendente FROM conta_receber WHERE id = ?",
+                BigDecimal.class, contaId)).isEqualByComparingTo("70.00");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM caixa_movimentacao WHERE recebimento_id IS NOT NULL",
+                Integer.class)).isEqualTo(1);
     }
 
     private VendaResponse executarApos(CountDownLatch partida, String chave, VendaRequest request)
@@ -406,10 +690,15 @@ class MySql8HomologationIT {
 
     private VendaRequest venda(Produto produto, int quantidade, String praticado, String conhecido,
             boolean manual, Cliente cliente) {
+        return venda(produto, quantidade, praticado, conhecido, manual, cliente, FormaPagamento.PIX);
+    }
+
+    private VendaRequest venda(Produto produto, int quantidade, String praticado, String conhecido,
+            boolean manual, Cliente cliente, FormaPagamento formaPagamento) {
         ItemVendaRequest item = new ItemVendaRequest(produto.getId(), quantidade,
                 new BigDecimal(praticado), new BigDecimal(conhecido), manual);
         return new VendaRequest(cliente == null ? null : cliente.getId(), List.of(item), BigDecimal.ZERO,
-                null, FormaPagamento.PIX, "Homologacao MySQL 8");
+                null, formaPagamento, "Homologacao MySQL 8");
     }
 
     private int estoque(Produto produto) {

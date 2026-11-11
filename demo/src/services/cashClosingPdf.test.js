@@ -14,7 +14,8 @@ test("gera relatório de fechamento com totais financeiros e movimentos", () => 
     movimentacoes: [{ tipo: "SAIDA_AVULSA", valor: 5, descricao: "Frete", operadorEmail: "operador@teste", dataHora: "2026-10-16T12:00:00" }]
   });
   const content = new TextDecoder("latin1").decode(bytes);
-  assert.match(content, /RELATORIO DE CAIXA #7/);
+  assert.match(content, /RELAT.RIO DE CAIXA #7/);
   assert.match(content, /Total bruto recebido/);
   assert.match(content, /Frete/);
+  assert.match(content, /MediaBox \[0 0 226\.77/);
 });

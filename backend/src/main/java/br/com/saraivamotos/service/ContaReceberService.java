@@ -83,7 +83,7 @@ public class ContaReceberService {
 
         ContaReceber conta = contas.buscarParaAtualizar(contaId)
                 .orElseThrow(() -> new IllegalArgumentException("Conta a receber nao encontrada."));
-        existente = recebimentos.findByChaveIdempotencia(chave).orElse(null);
+        existente = recebimentos.buscarPorChaveParaAtualizar(chave).orElse(null);
         if (existente != null) return validarExistente(existente, requestHash);
         return RecebimentoResponse.from(registrarInterno(conta, chave, request, operador));
     }

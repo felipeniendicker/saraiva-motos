@@ -69,7 +69,7 @@ class LocalBackupHomologationIT {
                 .isEqualTo("saraiva_backup_teste");
         assertThat(jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE success=1",
-                Integer.class)).isEqualTo(9);
+                Integer.class)).isEqualTo(12);
 
         AuthenticatedUser operador = operador();
         var caixa = caixas.abrir(new AberturaCaixaRequest(new BigDecimal("100.00")), operador);

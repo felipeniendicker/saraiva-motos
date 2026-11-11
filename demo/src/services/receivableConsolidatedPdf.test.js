@@ -63,10 +63,13 @@ test("pagamento parcial reduz o total consolidado atual", () => {
   ])));
 
   assert.match(pdf, /R\$\s650,00/);
-  assert.doesNotMatch(pdf, /R\$\s900,00/);
+  assert.match(pdf, /TOTAL ORIGINAL/);
+  assert.match(pdf, /R\$\s900,00/);
+  assert.match(pdf, /TOTAL RECEBIDO/);
+  assert.match(pdf, /R\$\s250,00/);
 });
 
-test("PDF exclui contas quitadas, canceladas e de outro cliente", () => {
+test("PDF preserva contas quitadas e canceladas do cliente e exclui homônimo", () => {
   const pdf = content(buildConsolidatedReceivablesPdf(group([
     account(),
     account({ id: 2, numeroVenda: "QUITADA-01", situacao: "QUITADA", saldoPendente: 0 }),
@@ -75,8 +78,29 @@ test("PDF exclui contas quitadas, canceladas e de outro cliente", () => {
   ])));
 
   assert.match(pdf, /000059/);
-  assert.doesNotMatch(pdf, /QUITADA-01|CANCELADA-01|HOMONIMO-01/);
+  assert.match(pdf, /QUITADA-01|CANCELADA-01/);
+  assert.doesNotMatch(pdf, /HOMONIMO-01/);
   assert.match(pdf, /R\$\s253,00/);
+});
+
+test("PDF consolidado detalha pagamentos e estornos de cada título", () => {
+  const pdf = content(buildConsolidatedReceivablesPdf(group([account({
+    recebimentos: [{
+      id: 1,
+      dataHora: "2026-10-20T10:00:00",
+      formaPagamento: "PIX",
+      valor: 47,
+      operadorEmail: "caixa@saraiva.test",
+      estornado: true,
+      dataEstorno: "2026-10-21T11:00:00",
+      motivoEstorno: "Lançamento incorreto"
+    }]
+  })])));
+
+  assert.match(pdf, /PAGAMENTOS/);
+  assert.match(pdf, /caixa@saraiva.test/);
+  assert.match(pdf, /ESTORNADO/);
+  assert.match(pdf, /Lan.amento incorreto/);
 });
 
 test("conteúdo extenso aumenta a altura sem cortar a última dívida", () => {

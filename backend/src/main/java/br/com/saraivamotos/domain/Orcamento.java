@@ -23,6 +23,11 @@ public class Orcamento {
     @Column(nullable=false,precision=15,scale=2) private BigDecimal desconto;
     @Column(name="desconto_percentual",nullable=false,precision=7,scale=4) private BigDecimal descontoPercentual;
     @Column(nullable=false,precision=15,scale=2) private BigDecimal total;
+    @Enumerated(EnumType.STRING) @Column(name="forma_pagamento_prevista",length=30) private FormaPagamento formaPagamentoPrevista;
+    @Enumerated(EnumType.STRING) @Column(name="condicao_pagamento_prevista",nullable=false,length=20) private CondicaoPagamento condicaoPagamentoPrevista=CondicaoPagamento.IMEDIATO;
+    @Column(name="vencimento_previsto") private LocalDate vencimentoPrevisto;
+    @Column(name="entrada_prevista",nullable=false,precision=15,scale=2) private BigDecimal entradaPrevista=BigDecimal.ZERO.setScale(2);
+    @Enumerated(EnumType.STRING) @Column(name="forma_pagamento_entrada_prevista",length=30) private FormaPagamento formaPagamentoEntradaPrevista;
     @Column(columnDefinition="TEXT") private String observacoes;
     @Column(name="operador_id",nullable=false) private Long operadorId;
     @Column(name="operador_email",nullable=false,length=254) private String operadorEmail;
@@ -40,6 +45,11 @@ public class Orcamento {
     public LocalDateTime getDataAtualizacao(){return dataAtualizacao;} public void setDataAtualizacao(LocalDateTime v){dataAtualizacao=v;} public LocalDate getValidade(){return validade;} public void setValidade(LocalDate v){validade=v;}
     public BigDecimal getSubtotal(){return subtotal;} public void setSubtotal(BigDecimal v){subtotal=v;} public BigDecimal getDesconto(){return desconto;} public void setDesconto(BigDecimal v){desconto=v;}
     public BigDecimal getDescontoPercentual(){return descontoPercentual;} public void setDescontoPercentual(BigDecimal v){descontoPercentual=v;} public BigDecimal getTotal(){return total;} public void setTotal(BigDecimal v){total=v;}
+    public FormaPagamento getFormaPagamentoPrevista(){return formaPagamentoPrevista;} public void setFormaPagamentoPrevista(FormaPagamento v){formaPagamentoPrevista=v;}
+    public CondicaoPagamento getCondicaoPagamentoPrevista(){return condicaoPagamentoPrevista;} public void setCondicaoPagamentoPrevista(CondicaoPagamento v){condicaoPagamentoPrevista=v;}
+    public LocalDate getVencimentoPrevisto(){return vencimentoPrevisto;} public void setVencimentoPrevisto(LocalDate v){vencimentoPrevisto=v;}
+    public BigDecimal getEntradaPrevista(){return entradaPrevista;} public void setEntradaPrevista(BigDecimal v){entradaPrevista=v;}
+    public FormaPagamento getFormaPagamentoEntradaPrevista(){return formaPagamentoEntradaPrevista;} public void setFormaPagamentoEntradaPrevista(FormaPagamento v){formaPagamentoEntradaPrevista=v;}
     public String getObservacoes(){return observacoes;} public void setObservacoes(String v){observacoes=v;} public Long getOperadorId(){return operadorId;} public void setOperadorId(Long v){operadorId=v;}
     public String getOperadorEmail(){return operadorEmail;} public void setOperadorEmail(String v){operadorEmail=v;} public Long getVendaId(){return vendaId;} public void setVendaId(Long v){vendaId=v;}
     public LocalDateTime getDataCancelamento(){return dataCancelamento;} public void setDataCancelamento(LocalDateTime v){dataCancelamento=v;} public String getMotivoCancelamento(){return motivoCancelamento;} public void setMotivoCancelamento(String v){motivoCancelamento=v;}

@@ -26,13 +26,18 @@ O QR aponta para:
 https://FRONTEND/#/leitor/TOKEN_TEMPORARIO
 ```
 
+Ao criar a sessao, o backend usa primeiro o cabecalho `Origin` enviado pelo navegador. Assim, no Railway,
+o QR aponta para a mesma origem HTTPS publica em que o operador abriu o frontend. `FRONTEND_PUBLIC_URL`
+continua sendo o fallback para clientes sem `Origin` e para execucoes locais controladas. Origens HTTP
+publicas ou valores com caminho, credenciais, query string ou fragmento sao ignorados.
+
 O token nao e JWT. A tela do celular nao recebe dados de produto, cliente, preco, estoque ou carrinho. Ela pode somente consultar se o pareamento esta ativo e enviar EAN-8, UPC-A ou EAN-13 com digito verificador valido.
 
 O computador consulta leituras pendentes a cada 750 ms. As sessoes e leituras ficam no MySQL, portanto requisicoes podem cair em instancias Railway diferentes. `eventoId` e indice exclusivo evitam duplicacao; o consumo usa `FOR UPDATE`.
 
 A camera usa `BarcodeDetector` quando o navegador oferece suporte. HTTPS e obrigatorio fora de `localhost`. Se o recurso nao existir ou a permissao for negada, permanece disponivel a digitacao manual. O leitor USB original continua funcionando.
 
-Configure no backend:
+Configure no backend como fallback e para liberar o CORS:
 
 ```text
 FRONTEND_PUBLIC_URL=https://url-publica-exata-do-frontend

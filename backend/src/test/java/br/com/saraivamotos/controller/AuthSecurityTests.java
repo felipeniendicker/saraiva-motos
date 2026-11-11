@@ -22,6 +22,7 @@ import br.com.saraivamotos.dto.ProdutoLookupResponse;
 import br.com.saraivamotos.exception.CredenciaisInvalidasException;
 import br.com.saraivamotos.exception.GlobalExceptionHandler;
 import br.com.saraivamotos.repository.UsuarioRepository;
+import br.com.saraivamotos.security.AuthenticatedUser;
 import br.com.saraivamotos.security.JwtAuthenticationFilter;
 import br.com.saraivamotos.security.JwtService;
 import br.com.saraivamotos.service.AuthService;
@@ -30,11 +31,14 @@ import br.com.saraivamotos.service.ProductLookupService;
 import br.com.saraivamotos.service.LeitorRemotoService;
 import br.com.saraivamotos.dto.LeitorStatusResponse;
 import br.com.saraivamotos.dto.LeitorLeituraResponse;
+import br.com.saraivamotos.dto.LeitorPareamentoResponse;
 import java.time.LocalDateTime;
 
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -43,12 +47,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {AuthController.class, HealthController.class, ProdutoController.class, LeitorRemotoController.class})
+@WebMvcTest(controllers = {AuthController.class, HealthController.class, ProdutoController.class,
+        LeitorRemotoController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtService.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = {
         "app.jwt.secret=test-secret-with-at-least-thirty-two-bytes",
         "app.jwt.expiration-ms=3600000",
-        "app.cors.allowed-origins=http://localhost:5173,http://localhost:5174"
+        "app.cors.allowed-origins=http://localhost:5173,http://localhost:5174,https://saraiva-motos.up.railway.app"
 })
 class AuthSecurityTests {
 
@@ -159,4 +164,24 @@ class AuthSecurityTests {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.codigo").value("7894900011517"));
         mockMvc.perform(post("/api/leitor/sessoes")).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void sessionCreationUsesThePublicBrowserOrigin() throws Exception {
+        String publicOrigin = "https://saraiva-motos.up.railway.app";
+        LocalDateTime expiration = LocalDateTime.now().plusMinutes(5);
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario));
+        when(leitorRemotoService.criar(any(AuthenticatedUser.class), eq(publicOrigin)))
+                .thenReturn(new LeitorPareamentoResponse(
+                        "session-id", "temporary-token", publicOrigin + "/#/leitor/temporary-token",
+                        "data:image/png;base64,abc", expiration));
+
+        mockMvc.perform(post("/api/leitor/sessoes")
+                        .header(HttpHeaders.ORIGIN, publicOrigin)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtService.generateToken(usuario)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(publicOrigin + "/#/leitor/temporary-token"));
+
+        verify(leitorRemotoService).criar(any(AuthenticatedUser.class), eq(publicOrigin));
+    }
+
 }

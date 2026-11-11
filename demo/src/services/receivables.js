@@ -21,6 +21,14 @@ export function calculateOutstandingBalance(accounts) {
   );
 }
 
+function countsInFinancialSummary(account) {
+  return account.situacao !== "CANCELADA";
+}
+
+function money(value) {
+  return Number(value) || 0;
+}
+
 function customerKey(account) {
   return account.clienteId == null ? `conta:${account.id}` : `cliente:${account.clienteId}`;
 }
@@ -34,18 +42,32 @@ function compareDueDates(first, second) {
 export function groupReceivablesByCustomer(accounts, search = "") {
   const groupsByCustomer = new Map();
 
-  for (const account of getOutstandingReceivables(accounts)) {
+  for (const account of accounts) {
     const key = customerKey(account);
     const group = groupsByCustomer.get(key) || {
       key,
       clienteId: account.clienteId,
       clienteNome: account.clienteNome || "Cliente não informado",
+      quantidadeContas: 0,
       quantidadeDividas: 0,
+      valorOriginalTotal: 0,
+      totalRecebido: 0,
       saldoTotal: 0,
+      contasVencidas: 0,
+      contasParciais: 0,
       contas: []
     };
-    group.quantidadeDividas += 1;
-    group.saldoTotal += Number(account.saldoPendente);
+    group.quantidadeContas += 1;
+    if (countsInFinancialSummary(account)) {
+      group.valorOriginalTotal += money(account.valorOriginal);
+      group.totalRecebido += money(account.valorRecebido);
+    }
+    if (isOutstandingReceivable(account)) {
+      group.quantidadeDividas += 1;
+      group.saldoTotal += money(account.saldoPendente);
+    }
+    if (account.situacao === "VENCIDA") group.contasVencidas += 1;
+    if (account.situacao === "PARCIAL") group.contasParciais += 1;
     group.contas.push(account);
     groupsByCustomer.set(key, group);
   }

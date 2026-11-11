@@ -94,13 +94,19 @@ test("altura cresce para vários pagamentos e identifica pagamentos estornados",
     dataHora: `2026-10-${String((index % 20) + 1).padStart(2, "0")}T10:30:00`,
     formaPagamento: index % 2 ? "CARTAO_DEBITO" : "PIX",
     valor: 25,
-    estornado: index === 4
+    operadorEmail: "operador@saraiva.test",
+    estornado: index === 4,
+    dataEstorno: index === 4 ? "2026-10-21T11:00:00" : null,
+    operadorEstornoEmail: index === 4 ? "gerente@saraiva.test" : null,
+    motivoEstorno: index === 4 ? "Correção" : null
   }));
   const longPdf = content(buildReceivableStatementPdf(account({ recebimentos: payments })));
 
   assert.ok(dimensions(longPdf).height > dimensions(shortPdf).height);
   assert.match(longPdf, /Cart.o de d.bito/);
   assert.match(longPdf, /ESTORNADO/);
+  assert.match(longPdf, /gerente@saraiva.test/);
+  assert.match(longPdf, /Corre..o/);
 });
 
 test("quebra nome longo e acomoda valores monetários grandes", () => {

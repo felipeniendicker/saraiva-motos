@@ -59,3 +59,20 @@ test("altura do orçamento cresce com itens e descrições longas", () => {
   assert.ok(pageHeight(longPdf) > pageHeight(shortPdf));
   assert.match(longPdf, /aplica..o detalhada/);
 });
+
+test("orçamento a prazo apresenta vencimento entrada e saldo previstos", () => {
+  const pdf = content(buildQuotePdf(quote({
+    total: 600,
+    condicaoPagamentoPrevista: "A_PRAZO",
+    vencimentoPrevisto: "2026-11-20",
+    entradaPrevista: 200,
+    formaPagamentoEntradaPrevista: "PIX"
+  })));
+  assert.match(pdf, /Pagamento previsto/);
+  assert.match(pdf, /A prazo/);
+  assert.match(pdf, /Vencimento previsto/);
+  assert.match(pdf, /Entrada prevista/);
+  assert.match(pdf, /Forma prevista da entrada/);
+  assert.match(pdf, /Saldo previsto a prazo/);
+  assert.match(pdf, /400,00/);
+});

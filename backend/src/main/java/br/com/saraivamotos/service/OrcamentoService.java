@@ -3,6 +3,7 @@ package br.com.saraivamotos.service;
 import java.math.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.*;
 import br.com.saraivamotos.domain.*;
 import br.com.saraivamotos.dto.*;
@@ -66,16 +67,22 @@ public class OrcamentoService {
     public VendaResponse converter(Long id,String chave,ConversaoOrcamentoRequest request,AuthenticatedUser user){
         Orcamento orcamento=bloquear(id);
         if(orcamento.getStatus()==StatusOrcamento.CONVERTIDO){
-            if(orcamento.getVendaId()==null)throw new IllegalStateException("Orcamento convertido sem venda vinculada.");
+            if(orcamento.getVendaId()==null)throw new IllegalArgumentException("O orcamento foi convertido em pedido e nao pode gerar outra venda direta.");
             return vendas.buscarPorId(orcamento.getVendaId());
         }
         if(orcamento.getStatus()==StatusOrcamento.CANCELADO)throw new IllegalArgumentException("Orcamento cancelado nao pode ser convertido.");
         List<ItemVendaRequest> itens=orcamento.getItens().stream().map(item->new ItemVendaRequest(item.getTipoItem(),
                 item.getProduto()==null?null:item.getProduto().getId(),item.getDescricaoItem(),item.getQuantidade(),
-                item.getPrecoUnitario(),item.getPrecoOriginal(),item.getPrecoAlteradoManualmente())).toList();
+                item.getPrecoUnitario(),item.getPrecoOriginal(),true)).toList();
         String observacoes=request.observacoes()==null||request.observacoes().isBlank()?orcamento.getObservacoes():request.observacoes().trim();
+        CondicaoPagamento condicao=request.condicaoPagamento()==null?orcamento.getCondicaoPagamentoPrevista():request.condicaoPagamento();
+        if(condicao==null)condicao=CondicaoPagamento.IMEDIATO;
+        LocalDate vencimento=request.vencimento()==null?orcamento.getVencimentoPrevisto():request.vencimento();
+        BigDecimal inicial=request.pagamentoInicial()==null?orcamento.getEntradaPrevista():request.pagamentoInicial();
+        FormaPagamento formaInicial=request.formaPagamentoInicial()==null?orcamento.getFormaPagamentoEntradaPrevista():request.formaPagamentoInicial();
+        if(condicao==CondicaoPagamento.IMEDIATO){vencimento=null;inicial=null;formaInicial=null;}
         VendaRequest vendaRequest=new VendaRequest(orcamento.getClienteId(),itens,orcamento.getDesconto(),
-                orcamento.getDescontoPercentual(),request.formaPagamento(),observacoes);
+                orcamento.getDescontoPercentual(),request.formaPagamento(),observacoes,condicao,vencimento,inicial,formaInicial);
         VendaResponse venda=operacoes.venda(chaveConversao(id,chave),vendaRequest,user);
         orcamento.setStatus(StatusOrcamento.CONVERTIDO);orcamento.setVendaId(venda.id());orcamento.setDataAtualizacao(LocalDateTime.now());
         orcamentos.save(orcamento);return venda;
@@ -113,6 +120,7 @@ public class OrcamentoService {
         orcamento.setClienteTipo(cliente==null?null:cliente.getTipoCliente().name());orcamento.setTipoPrecoUtilizado(tipoPreco);
         orcamento.setStatus(request.status());orcamento.setValidade(request.validade());orcamento.setSubtotal(subtotal);
         orcamento.setDescontoPercentual(percentual);orcamento.setDesconto(desconto);orcamento.setTotal(dinheiro(subtotal.subtract(desconto)));
+        preencherPagamentoPrevisto(orcamento,request,cliente);
         orcamento.setObservacoes(request.observacoes()==null||request.observacoes().isBlank()?null:request.observacoes().trim());
         orcamento.setDataAtualizacao(LocalDateTime.now());orcamento.getItens().clear();itens.forEach(orcamento::adicionarItem);
     }
@@ -129,6 +137,24 @@ public class OrcamentoService {
         if(item.tipoItem()==TipoItem.SERVICO&&(item.descricao()==null||item.descricao().isBlank()))throw new IllegalArgumentException("Descricao obrigatoria no servico.");
     }
     private void validarStatusEditavel(StatusOrcamento status){if(status!=StatusOrcamento.RASCUNHO&&status!=StatusOrcamento.EMITIDO)throw new IllegalArgumentException("Status invalido para salvar o orcamento.");}
+    private void preencherPagamentoPrevisto(Orcamento orcamento,OrcamentoRequest request,Cliente cliente){
+        CondicaoPagamento condicao=request.condicaoPagamentoPrevista()==null?CondicaoPagamento.IMEDIATO:request.condicaoPagamentoPrevista();
+        if(condicao==CondicaoPagamento.A_PRAZO){
+            if(cliente==null)throw new IllegalArgumentException("Cliente cadastrado e obrigatorio para orcamento a prazo.");
+            if(request.vencimentoPrevisto()==null||request.vencimentoPrevisto().isBefore(LocalDate.now()))
+                throw new IllegalArgumentException("Informe um vencimento valido para o pagamento previsto a prazo.");
+            BigDecimal entrada=request.entradaPrevista()==null?BigDecimal.ZERO:dinheiro(request.entradaPrevista());
+            if(entrada.compareTo(orcamento.getTotal())>0)throw new IllegalArgumentException("A entrada prevista nao pode superar o total do orcamento.");
+            if(entrada.signum()>0&&request.formaPagamentoEntradaPrevista()==null)
+                throw new IllegalArgumentException("Informe a forma prevista para a entrada.");
+            orcamento.setFormaPagamentoPrevista(null);orcamento.setCondicaoPagamentoPrevista(condicao);
+            orcamento.setVencimentoPrevisto(request.vencimentoPrevisto());orcamento.setEntradaPrevista(entrada);
+            orcamento.setFormaPagamentoEntradaPrevista(entrada.signum()>0?request.formaPagamentoEntradaPrevista():null);
+        }else{
+            orcamento.setFormaPagamentoPrevista(request.formaPagamentoPrevista());orcamento.setCondicaoPagamentoPrevista(CondicaoPagamento.IMEDIATO);
+            orcamento.setVencimentoPrevisto(null);orcamento.setEntradaPrevista(BigDecimal.ZERO.setScale(2));orcamento.setFormaPagamentoEntradaPrevista(null);
+        }
+    }
     private Orcamento bloquear(Long id){return orcamentos.buscarParaAtualizar(id).orElseThrow(()->new IllegalArgumentException("Orcamento nao encontrado."));}
     private String chaveConversao(Long orcamentoId,String chave){
         try{

@@ -32,11 +32,11 @@ function cancellationElements(receipt) {
   ];
 }
 
-export function buildSaleReceiptPdf(sale, customers = []) {
+export function buildSaleReceiptPdf(sale, customers = [], company) {
   const receipt = getSaleReceiptData(sale, customers);
   const number = receipt.numeroVenda || receipt.id || "Não informado";
   const elements = [
-    ...companyHeader("COMPROVANTE"),
+    ...companyHeader("COMPROVANTE", company),
     { type: "pair", left: "Número", right: String(number), fontSize: 7.4, boldLeft: true, boldRight: true },
     { type: "pair", left: "Emissão", right: formatDateTime(receipt.dataHora), fontSize: 7.2, boldLeft: true },
     { type: "pair", left: "Status", right: SALE_STATUS_LABELS[receipt.status] || receipt.status || "Não informado", fontSize: 7.2, boldLeft: true, gapAfter: 2 },

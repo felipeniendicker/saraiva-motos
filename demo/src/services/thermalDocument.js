@@ -1,22 +1,18 @@
-const environment = import.meta.env || {};
+import { getCurrentCompanySettings, normalizeCompanySettings } from "./companySettings.js";
 
-export const COMPANY_INFO = Object.freeze({
-  brand: "SARAIVA MOTOS",
-  legalName: "SARAIVA MOTO PEÇAS",
-  cnpj: environment.VITE_COMPANY_CNPJ || "Não informado",
-  phone: environment.VITE_COMPANY_PHONE || "Não informado",
-  address: environment.VITE_COMPANY_ADDRESS || "Não informado",
-  email: environment.VITE_COMPANY_EMAIL || "Não informado"
-});
+function informed(value) {
+  return value || "Não informado";
+}
 
-export function companyHeader(documentName, company = COMPANY_INFO) {
+export function companyHeader(documentName, company = getCurrentCompanySettings()) {
+  const settings = normalizeCompanySettings(company);
   return [
-    { type: "text", text: company.brand, align: "center", bold: true, fontSize: 13, lineHeight: 15 },
-    { type: "text", text: company.legalName, align: "center", bold: true, fontSize: 8, gapAfter: 2 },
-    { type: "text", text: `CNPJ: ${company.cnpj}`, align: "center", fontSize: 6.8 },
-    { type: "text", text: `Telefone: ${company.phone}`, align: "center", fontSize: 6.8 },
-    { type: "text", text: `Endereço: ${company.address}`, align: "center", fontSize: 6.8 },
-    { type: "text", text: `E-mail: ${company.email}`, align: "center", fontSize: 6.8, gapAfter: 4 },
+    { type: "text", text: settings.nomeFantasia, align: "center", bold: true, fontSize: 13, lineHeight: 15 },
+    { type: "text", text: settings.razaoSocial, align: "center", bold: true, fontSize: 8, gapAfter: 2 },
+    { type: "text", text: `CNPJ: ${informed(settings.cnpj)}`, align: "center", fontSize: 6.8 },
+    { type: "text", text: `Telefone: ${informed(settings.telefone)}`, align: "center", fontSize: 6.8 },
+    { type: "text", text: `Endereço: ${informed(settings.endereco)}`, align: "center", fontSize: 6.8 },
+    { type: "text", text: `E-mail: ${informed(settings.email)}`, align: "center", fontSize: 6.8, gapAfter: 4 },
     { type: "rule", style: "solid", gapAfter: 6 },
     { type: "text", text: documentName, align: "center", bold: true, fontSize: 12, lineHeight: 14, gapAfter: 5 },
     { type: "rule", style: "solid", gapAfter: 6 }

@@ -3,9 +3,22 @@ import EmptyState from "../components/EmptyState.jsx";
 import Panel from "../components/Panel.jsx";
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS } from "../data/domain.js";
 import { listReceivables, receivePayment, reversePayment } from "../services/receivablesApi.js";
-import { saveConsolidatedReceivablesPdf } from "../services/receivableConsolidatedPdf.js";
+import {
+  buildConsolidatedReceivablesPdf,
+  getConsolidatedReceivablesPdfFilename,
+  saveConsolidatedReceivablesPdf
+} from "../services/receivableConsolidatedPdf.js";
 import { calculateOutstandingBalance, groupReceivablesByCustomer } from "../services/receivables.js";
-import { saveReceivableStatementPdf } from "../services/receivableStatementPdf.js";
+import {
+  buildReceivableStatementPdf,
+  getReceivableStatementPdfFilename,
+  saveReceivableStatementPdf
+} from "../services/receivableStatementPdf.js";
+import {
+  buildConsolidatedWhatsAppMessage,
+  buildReceivableWhatsAppMessage,
+  shareReceivablePdf
+} from "../services/receivableWhatsApp.js";
 import { formatCivilDate, formatCurrency, formatDateTime } from "../utils/formatters.js";
 
 const STATUS_LABELS = {
@@ -25,7 +38,14 @@ function PaymentHistory({ account, onReverse }) {
     {payments.length === 0
       ? <p className="receivable-empty-history">Nenhum pagamento registrado.</p>
       : payments.map((receipt) => <div className="receivable-history" key={receipt.id}>
-        <span>{formatDateTime(receipt.dataHora)} · {PAYMENT_METHOD_LABELS[receipt.formaPagamento] || receipt.formaPagamento}</span>
+        <span>
+          {formatDateTime(receipt.dataHora)} · {PAYMENT_METHOD_LABELS[receipt.formaPagamento] || receipt.formaPagamento}
+          <small>Operador: {receipt.operadorEmail || "Não informado"}</small>
+          {receipt.estornado && <small>
+            Estornado em {formatDateTime(receipt.dataEstorno)} por {receipt.operadorEstornoEmail || "operador não informado"}
+            {receipt.motivoEstorno ? ` · ${receipt.motivoEstorno}` : ""}
+          </small>}
+        </span>
         <strong>{formatCurrency(receipt.valor)} {receipt.estornado && "· Estornado"}</strong>
         {!receipt.estornado && <button className="ghost-button" type="button" onClick={() => onReverse(receipt)}>Estornar</button>}
       </div>)}
@@ -35,32 +55,39 @@ function PaymentHistory({ account, onReverse }) {
 function PaymentForm({ account, payment, busy, onChange, onSubmit }) {
   if (payment.id !== account.id) return null;
   return <form className="receivable-payment" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-    <input
-      aria-label={`Valor do pagamento da venda ${account.numeroVenda}`}
-      type="number"
-      min="0.01"
-      max={account.saldoPendente}
-      step="0.01"
-      value={payment.valor}
-      onChange={(event) => onChange({ ...payment, valor: event.target.value })}
-      required
-    />
-    <select
-      aria-label={`Forma de pagamento da venda ${account.numeroVenda}`}
-      value={payment.formaPagamento}
-      onChange={(event) => onChange({ ...payment, formaPagamento: event.target.value })}
-      required
-    >
-      <option value="">Forma de pagamento</option>
-      {PAYMENT_METHODS.filter((method) => method !== "A_PRAZO").map((method) => (
-        <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>
-      ))}
-    </select>
+    <label>
+      Valor a receber
+      <input
+        aria-label={`Valor do pagamento da venda ${account.numeroVenda}`}
+        type="number"
+        min="0.01"
+        max={account.saldoPendente}
+        step="0.01"
+        value={payment.valor}
+        onChange={(event) => onChange({ ...payment, valor: event.target.value })}
+        required
+      />
+      <small>Saldo disponível: {formatCurrency(account.saldoPendente)}</small>
+    </label>
+    <label>
+      Forma de pagamento
+      <select
+        aria-label={`Forma de pagamento da venda ${account.numeroVenda}`}
+        value={payment.formaPagamento}
+        onChange={(event) => onChange({ ...payment, formaPagamento: event.target.value })}
+        required
+      >
+        <option value="">Selecione</option>
+        {PAYMENT_METHODS.filter((method) => method !== "A_PRAZO").map((method) => (
+          <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>
+        ))}
+      </select>
+    </label>
     <button className="primary-button" disabled={busy || !payment.formaPagamento}>Confirmar</button>
   </form>;
 }
 
-function ReceivableAccount({ account, payment, busy, onPaymentChange, onPaymentSubmit, onReverse }) {
+function ReceivableAccount({ account, payment, busy, onPaymentChange, onPaymentSubmit, onReverse, onShare }) {
   const canReceive = Number(account.saldoPendente) > 0 && account.situacao !== "CANCELADA";
   return <article className="receivable-account">
     <div className="receivable-account-heading">
@@ -79,7 +106,8 @@ function ReceivableAccount({ account, payment, busy, onPaymentChange, onPaymentS
       <span>Saldo <strong>{formatCurrency(account.saldoPendente)}</strong></span>
     </div>
     <div className="form-actions-pro">
-      <button className="secondary-button" type="button" onClick={() => saveReceivableStatementPdf(account)}>Salvar extrato PDF</button>
+      <button className="secondary-button" type="button" onClick={() => saveReceivableStatementPdf(account)}>Gerar extrato atualizado</button>
+      <button className="secondary-button" type="button" onClick={() => onShare(account)}>Compartilhar pelo WhatsApp</button>
       {canReceive && <button
         className="primary-button"
         type="button"
@@ -97,7 +125,7 @@ function ReceivableAccount({ account, payment, busy, onPaymentChange, onPaymentS
   </article>;
 }
 
-function CustomerReceivables({ group, ...accountActions }) {
+function CustomerReceivables({ group, onShareGroup, ...accountActions }) {
   const debtLabel = group.quantidadeDividas === 1 ? "1 dívida" : `${group.quantidadeDividas} dívidas`;
   return <details className="receivable-customer-group">
     <summary>
@@ -106,20 +134,39 @@ function CustomerReceivables({ group, ...accountActions }) {
         <span>{debtLabel}</span>
       </div>
       <div className="receivable-customer-financial">
-        <span>Saldo total</span>
+        <span>{group.quantidadeContas} conta(s) · {debtLabel}</span>
+        <span>Saldo pendente</span>
         <strong>{formatCurrency(group.saldoTotal)}</strong>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            saveConsolidatedReceivablesPdf(group);
-          }}
-        >Imprimir todas as dívidas</button>
+        <div className="form-actions-pro">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              saveConsolidatedReceivablesPdf(group);
+            }}
+          >Gerar extrato consolidado</button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onShareGroup(group);
+            }}
+          >Compartilhar pelo WhatsApp</button>
+        </div>
       </div>
     </summary>
     <div className="receivable-customer-accounts">
+      <div className="receivable-customer-summary">
+        <span>Dívida original <strong>{formatCurrency(group.valorOriginalTotal)}</strong></span>
+        <span>Total recebido <strong>{formatCurrency(group.totalRecebido)}</strong></span>
+        <span>Saldo pendente <strong>{formatCurrency(group.saldoTotal)}</strong></span>
+        <span>Vencidas <strong>{group.contasVencidas}</strong></span>
+        <span>Parcialmente pagas <strong>{group.contasParciais}</strong></span>
+      </div>
       {group.contas.map((account) => (
         <ReceivableAccount key={account.id} account={account} {...accountActions} />
       ))}
@@ -155,6 +202,11 @@ export default function ReceivablesPage() {
   const overdue = accounts.filter((account) => account.situacao === "VENCIDA").length;
 
   async function submitPayment() {
+    const selectedAccount = accounts.find((account) => account.id === payment.id);
+    if (!selectedAccount || Number(payment.valor) <= 0 || Number(payment.valor) > Number(selectedAccount.saldoPendente)) {
+      setError("Informe um pagamento positivo que não ultrapasse o saldo pendente.");
+      return;
+    }
     const payload = { valor: Number(payment.valor), formaPagamento: payment.formaPagamento };
     const signature = JSON.stringify(payload);
     const previous = attempts.current.get(payment.id);
@@ -172,6 +224,32 @@ export default function ReceivablesPage() {
       setError(failure.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function shareAccount(account) {
+    try {
+      await shareReceivablePdf({
+        bytes: buildReceivableStatementPdf(account),
+        filename: getReceivableStatementPdfFilename(account),
+        message: buildReceivableWhatsAppMessage(account),
+        title: `Extrato ${account.numeroVenda || account.id}`
+      });
+    } catch (failure) {
+      setError(failure.message || "Não foi possível compartilhar o extrato.");
+    }
+  }
+
+  async function shareGroup(group) {
+    try {
+      await shareReceivablePdf({
+        bytes: buildConsolidatedReceivablesPdf(group),
+        filename: getConsolidatedReceivablesPdfFilename(group),
+        message: buildConsolidatedWhatsAppMessage(group),
+        title: `Extrato consolidado de ${group.clienteNome}`
+      });
+    } catch (failure) {
+      setError(failure.message || "Não foi possível compartilhar o extrato consolidado.");
     }
   }
 
@@ -209,7 +287,7 @@ export default function ReceivablesPage() {
           {customerGroups.length === 0
             ? <EmptyState
               title={search ? "Nenhum cliente encontrado" : "Nenhuma dívida pendente"}
-              description={search ? "Tente pesquisar por outro nome." : "Todas as contas estão quitadas ou não possuem saldo para cobrança."}
+              description={search ? "Tente pesquisar por outro nome." : "Nenhuma conta foi encontrada."}
             />
             : <div className="receivables-list">
               {customerGroups.map((group) => <CustomerReceivables
@@ -220,6 +298,8 @@ export default function ReceivablesPage() {
                 onPaymentChange={setPayment}
                 onPaymentSubmit={submitPayment}
                 onReverse={reversePaymentReceipt}
+                onShare={shareAccount}
+                onShareGroup={shareGroup}
               />)}
             </div>}
         </>}

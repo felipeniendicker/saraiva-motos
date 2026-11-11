@@ -5,15 +5,22 @@ import {
 } from "../data/domain.js";
 import { getSaleReceiptData } from "../services/sales.js";
 import { formatCurrency, formatDateTime } from "../utils/formatters.js";
+import { useCompanySettings } from "../context/CompanySettingsContext.jsx";
 
 export default function SaleReceipt({ sale, customers = [] }) {
+  const { settings: company } = useCompanySettings();
   const receipt = getSaleReceiptData(sale, customers);
   const isCancelled = receipt.status === "CANCELADA";
 
   return (
     <article className="sale-receipt sale-receipt-80mm">
       <header className="receipt-header">
-        <h1>SARAIVA MOTOS</h1>
+        <h1>{company.nomeFantasia}</h1>
+        <span>{company.razaoSocial}</span>
+        <small>CNPJ: {company.cnpj || "Não informado"}</small>
+        <small>Telefone: {company.telefone || "Não informado"}</small>
+        <small>Endereço: {company.endereco || "Não informado"}</small>
+        <small>E-mail: {company.email || "Não informado"}</small>
         <strong>COMPROVANTE</strong>
         {isCancelled && <div className="receipt-cancelled">*** VENDA CANCELADA ***</div>}
       </header>
@@ -62,7 +69,7 @@ export default function SaleReceipt({ sale, customers = [] }) {
 
       <footer className="receipt-footer">
         <p>Obrigado pela preferência!</p>
-        <strong>SARAIVA MOTOS</strong>
+        <strong>{company.nomeFantasia}</strong>
         <small>*** COMPROVANTE ***</small>
       </footer>
     </article>

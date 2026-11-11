@@ -95,6 +95,27 @@ class ContaReceberServiceTests {
     }
 
     @Test
+    void multiplosPagamentosAtualizamSaldoAteQuitacao() {
+        when(conta.getId()).thenReturn(4L);
+        String primeiraChave = UUID.randomUUID().toString();
+        String segundaChave = UUID.randomUUID().toString();
+        when(recebimentos.findByChaveIdempotencia(primeiraChave)).thenReturn(Optional.empty());
+        when(recebimentos.findByChaveIdempotencia(segundaChave)).thenReturn(Optional.empty());
+        when(contas.buscarParaAtualizar(4L)).thenReturn(Optional.of(conta));
+        when(caixas.registrarRecebimento(any(), any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.registrar(4L, primeiraChave,
+                new RecebimentoRequest(new BigDecimal("40.00"), FormaPagamento.PIX), operador);
+        service.registrar(4L, segundaChave,
+                new RecebimentoRequest(new BigDecimal("60.00"), FormaPagamento.CARTAO_DEBITO), operador);
+
+        assertThat(conta.getValorRecebido()).isEqualByComparingTo("100.00");
+        assertThat(conta.getSaldoPendente()).isZero();
+        assertThat(conta.getStatus()).isEqualTo(StatusContaReceber.QUITADA);
+        verify(caixas, times(2)).registrarRecebimento(any(), any());
+    }
+
+    @Test
     void recusaPagamentoAcimaDoSaldo() {
         String chave = UUID.randomUUID().toString();
         when(recebimentos.findByChaveIdempotencia(chave)).thenReturn(Optional.empty());
@@ -124,12 +145,14 @@ class ContaReceberServiceTests {
         when(recebimentos.buscarParaAtualizar(9L)).thenReturn(Optional.of(recebimento));
         when(contas.buscarParaAtualizar(4L)).thenReturn(Optional.of(conta));
 
-        service.estornar(9L, new EstornoRecebimentoRequest("Correcao do recebimento"), operador);
+        var resposta = service.estornar(9L,
+                new EstornoRecebimentoRequest("Correcao do recebimento"), operador);
 
         assertThat(recebimento.getEstornado()).isTrue();
         assertThat(conta.getValorRecebido()).isEqualByComparingTo("70.00");
         assertThat(conta.getSaldoPendente()).isEqualByComparingTo("30.00");
         assertThat(conta.getStatus()).isEqualTo(StatusContaReceber.PARCIAL);
+        assertThat(resposta.operadorEstornoEmail()).isEqualTo(operador.email());
         verify(caixas).registrarEstornoRecebimento(recebimento, operador);
         verify(recebimentos, times(0)).delete(any());
     }

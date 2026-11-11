@@ -21,6 +21,9 @@ import LoginPage from "./pages/LoginPage.jsx";
 import RemoteScannerPage from "./pages/RemoteScannerPage.jsx";
 import QuotesPage from "./pages/QuotesPage.jsx";
 import ReceivablesPage from "./pages/ReceivablesPage.jsx";
+import OrdersPage from "./pages/OrdersPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
+import { CompanySettingsProvider } from "./context/CompanySettingsContext.jsx";
 import { getCurrentUser, login } from "./services/authApi.js";
 import { AUTH_UNAUTHORIZED_EVENT, clearAuthToken, getAuthToken, setAuthToken } from "./services/authSession.js";
 import { DRAWER_ACTIONS, getNextDrawerState } from "./services/navigationDrawer.js";
@@ -43,6 +46,12 @@ const navItems = [
     label: "Orçamentos",
     description: "Propostas e conversão em venda",
     icon: <IconQuote />
+  },
+  {
+    to: "/pedidos",
+    label: "Pedidos",
+    description: "Confirmação, retirada e finalização",
+    icon: <IconOrder />
   },
   {
     to: "/contas-receber",
@@ -73,6 +82,12 @@ const navItems = [
     label: "Relatórios",
     description: "Indicadores da operação",
     icon: <IconRevenue />
+  },
+  {
+    to: "/configuracoes",
+    label: "Configurações",
+    description: "Dados da empresa",
+    icon: <IconSpark />
   }
 ];
 
@@ -88,6 +103,10 @@ const pageMeta = {
   "/orcamentos": {
     title: "Orçamentos",
     subtitle: "Criação, consulta e conversão segura de propostas comerciais."
+  },
+  "/pedidos": {
+    title: "Pedidos",
+    subtitle: "Acompanhamento dos pedidos de clientes até a geração da venda."
   },
   "/contas-receber": { title: "Contas a receber", subtitle: "Saldos, vencimentos e histórico de pagamentos." },
   "/clientes": {
@@ -105,6 +124,10 @@ const pageMeta = {
   "/relatorios": {
     title: "Relatórios",
     subtitle: "Indicadores de vendas, produtos, estoque e clientes."
+  },
+  "/configuracoes": {
+    title: "Configurações",
+    subtitle: "Dados cadastrais utilizados nos documentos da empresa."
   }
 };
 
@@ -203,7 +226,7 @@ export default function App() {
 
   const meta = pageMeta[location.pathname] || pageMeta["/dashboard"];
 
-  return <>
+  return <CompanySettingsProvider>
     <PwaControls />
     <div className="app-shell">
       <Sidebar
@@ -253,15 +276,17 @@ export default function App() {
             />
             <Route path="/vendas" element={<SalesPage />} />
             <Route path="/orcamentos" element={<QuotesPage />} />
+            <Route path="/pedidos" element={<OrdersPage />} />
             <Route path="/contas-receber" element={<ReceivablesPage />} />
             <Route path="/clientes" element={<CustomersPage />} />
             <Route path="/pecas" element={<ProductsPage />} />
             <Route path="/estoque" element={<InventoryPage />} />
             <Route path="/relatorios" element={<ReportsPage />} />
+            <Route path="/configuracoes" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
       </main>
     </div>
-  </>;
+  </CompanySettingsProvider>;
 }

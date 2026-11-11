@@ -1,6 +1,7 @@
 package br.com.saraivamotos.repository;import java.util.*;import br.com.saraivamotos.domain.Recebimento;import org.springframework.data.jpa.repository.*;import org.springframework.data.repository.query.Param;
 public interface RecebimentoRepository extends JpaRepository<Recebimento,Long>{
  Optional<Recebimento> findByChaveIdempotencia(String chave);
+ @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)@Query("SELECT r FROM Recebimento r WHERE r.chaveIdempotencia=:chave")Optional<Recebimento> buscarPorChaveParaAtualizar(@Param("chave")String chave);
  @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)@Query("SELECT r FROM Recebimento r WHERE r.id=:id")Optional<Recebimento> buscarParaAtualizar(@Param("id")Long id);
  @Query("SELECT r.formaPagamento,COALESCE(SUM(r.valor),0) FROM Recebimento r WHERE r.caixaId=:caixaId GROUP BY r.formaPagamento")List<Object[]> totaisPorFormaNoCaixa(@Param("caixaId")Long caixaId);
  @Query("SELECT COALESCE(SUM(r.valor),0) FROM Recebimento r WHERE r.caixaEstornoId=:caixaId AND r.estornado=true")java.math.BigDecimal totalEstornosNoCaixa(@Param("caixaId")Long caixaId);

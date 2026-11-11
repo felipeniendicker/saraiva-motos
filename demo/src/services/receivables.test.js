@@ -10,6 +10,8 @@ function account(overrides = {}) {
     numeroVenda: "000010",
     vencimento: "2026-11-10",
     situacao: "ABERTA",
+    valorOriginal: 600,
+    valorRecebido: 0,
     saldoPendente: 600,
     ...overrides
   };
@@ -23,6 +25,8 @@ test("mantém um cliente com uma dívida em um único grupo", () => {
   assert.equal(groups[0].contas.length, 1);
   assert.equal(groups[0].contas[0], debt);
   assert.equal(groups[0].saldoTotal, 600);
+  assert.equal(groups[0].valorOriginalTotal, 600);
+  assert.equal(groups[0].totalRecebido, 0);
 });
 
 test("agrupa várias dívidas pelo clienteId e soma somente a apresentação", () => {
@@ -74,43 +78,47 @@ test("ordena dívidas do cliente pelos vencimentos mais próximos", () => {
   assert.deepEqual(groups[0].contas.map((item) => item.id), [1, 2, 3]);
 });
 
-test("pagamento parcial reduz o total e quitação remove somente a conta correspondente", () => {
-  const first = account({ id: 1, saldoPendente: 100 });
+test("pagamento parcial reduz o saldo e quitação preserva a conta no histórico", () => {
+  const first = account({ id: 1, valorOriginal: 100, saldoPendente: 100 });
   const second = account({ id: 2, saldoPendente: 200 });
-  const partial = groupReceivablesByCustomer([{ ...first, saldoPendente: 40 }, second])[0];
-  const paid = groupReceivablesByCustomer([{ ...first, saldoPendente: 0 }, second])[0];
+  const partial = groupReceivablesByCustomer([{ ...first, valorRecebido: 60, saldoPendente: 40, situacao: "PARCIAL" }, second])[0];
+  const paid = groupReceivablesByCustomer([{ ...first, valorRecebido: 100, saldoPendente: 0, situacao: "QUITADA" }, second])[0];
 
   assert.deepEqual(partial.contas.map((item) => item.saldoPendente), [40, 200]);
   assert.equal(partial.saldoTotal, 240);
-  assert.deepEqual(paid.contas.map((item) => item.saldoPendente), [200]);
+  assert.deepEqual(paid.contas.map((item) => item.saldoPendente), [0, 200]);
   assert.equal(paid.saldoTotal, 200);
+  assert.equal(paid.totalRecebido, 100);
 });
 
-test("cliente com todas as dívidas quitadas não aparece", () => {
+test("cliente com contas quitadas permanece disponível para consulta histórica", () => {
   const groups = groupReceivablesByCustomer([
     account({ id: 1, situacao: "QUITADA", saldoPendente: 0 }),
     account({ id: 2, situacao: "QUITADA", saldoPendente: 0 })
   ]);
 
-  assert.deepEqual(groups, []);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].quantidadeDividas, 0);
+  assert.equal(groups[0].contas.length, 2);
 });
 
-test("exibe somente contas pendentes quando o cliente também possui contas encerradas", () => {
+test("exibe contas pendentes e encerradas sem somar conta cancelada", () => {
   const groups = groupReceivablesByCustomer([
     account({ id: 1, situacao: "ABERTA", saldoPendente: 100 }),
     account({ id: 2, situacao: "QUITADA", saldoPendente: 0 }),
     account({ id: 3, situacao: "CANCELADA", saldoPendente: 300 })
   ]);
 
-  assert.deepEqual(groups[0].contas.map((item) => item.id), [1]);
+  assert.deepEqual(groups[0].contas.map((item) => item.id), [1, 2, 3]);
   assert.equal(groups[0].quantidadeDividas, 1);
   assert.equal(groups[0].saldoTotal, 100);
+  assert.equal(groups[0].valorOriginalTotal, 1200);
 });
 
-test("estorno que reabre a conta faz o cliente reaparecer", () => {
+test("estorno reabre o saldo da conta histórica", () => {
   const paid = account({ situacao: "QUITADA", saldoPendente: 0 });
   const reopened = { ...paid, situacao: "PARCIAL", saldoPendente: 75 };
 
-  assert.equal(groupReceivablesByCustomer([paid]).length, 0);
+  assert.equal(groupReceivablesByCustomer([paid])[0].saldoTotal, 0);
   assert.equal(groupReceivablesByCustomer([reopened])[0].saldoTotal, 75);
 });

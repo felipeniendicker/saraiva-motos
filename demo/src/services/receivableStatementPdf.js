@@ -28,12 +28,20 @@ function paymentElements(payment) {
     },
     {
       type: "text",
-      text: `Forma: ${method}${status}`,
+      text: `Forma: ${method} · Operador: ${payment.operadorEmail || "Não informado"}${status}`,
       fontSize: 7.1,
       lineHeight: 9,
       bold: Boolean(payment.estornado),
       gapAfter: 3
     },
+    ...(payment.estornado ? [{
+      type: "text",
+      text: `Estorno: ${formatDateTime(payment.dataEstorno)} · ${payment.operadorEstornoEmail || "Operador não informado"} · ${payment.motivoEstorno || "Motivo não informado"}`,
+      fontSize: 6.9,
+      lineHeight: 8.8,
+      bold: true,
+      gapAfter: 3
+    }] : []),
     { type: "rule", style: "dotted", gapAfter: 4 }
   ];
 }
@@ -57,7 +65,7 @@ function statementNotice(account) {
   return "Documento de acompanhamento financeiro. Há saldo pendente; não é comprovante de quitação.";
 }
 
-export function buildReceivableStatementPdf(account) {
+export function buildReceivableStatementPdf(account, company, { issuedAt = new Date() } = {}) {
   const accountNumber = account.id || "Não informado";
   const saleNumber = account.numeroVenda || "Não informada";
   const payments = account.recebimentos || [];
@@ -66,7 +74,7 @@ export function buildReceivableStatementPdf(account) {
     : [];
 
   const elements = [
-    ...companyHeader("EXTRATO DO CLIENTE"),
+    ...companyHeader("EXTRATO DO CLIENTE", company),
     {
       type: "text",
       text: `Cliente: ${account.clienteNome || "Não informado"}`,
@@ -78,6 +86,7 @@ export function buildReceivableStatementPdf(account) {
     { type: "pair", left: "Conta a receber", right: String(accountNumber), fontSize: 7.3, boldLeft: true, boldRight: true },
     { type: "pair", left: "Venda", right: String(saleNumber), fontSize: 7.3, boldLeft: true, boldRight: true },
     ...saleDateElements,
+    { type: "pair", left: "Emissão", right: formatDateTime(issuedAt), fontSize: 7.3, boldLeft: true },
     { type: "pair", left: "Vencimento", right: formatCivilDate(account.vencimento, "Não informada"), fontSize: 7.3, boldLeft: true },
     {
       type: "pair",

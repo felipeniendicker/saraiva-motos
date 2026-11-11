@@ -1,4 +1,5 @@
 import { apiRequest } from "./httpClient.js";
+export { convertQuoteToOrder } from "./ordersApi.js";
 
 export const listQuotes = () => apiRequest("/api/orcamentos");
 export const createQuote = (data) => apiRequest("/api/orcamentos", { method: "POST", body: JSON.stringify(data) });
